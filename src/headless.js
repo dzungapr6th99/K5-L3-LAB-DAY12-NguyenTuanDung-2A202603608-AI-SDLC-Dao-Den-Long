@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Headless runner implementing Test Contract v1.0.
+// Headless runner implementing Test Contract v1.1.
 //   node src/headless.js --seed N --night 1 [--scenario f.json] [--inputs f.json]
 //                        --ticks N --out f.jsonl [--snapshot-every N]
 // Exit codes: 0 ok, 2 malformed --inputs/--scenario file, 1 any other error (message on stderr).
@@ -33,10 +33,10 @@ function parseArgs(argv) {
     return n;
   };
   const night = int('night', 1, 1);
-  if (night !== 1) throw new UsageError('only --night 1 exists in this build');
+  if (night > 3) throw new UsageError('--night must be 1, 2 or 3');
   if (!opts.out) throw new UsageError('missing required option --out');
   return {
-    seed: int('seed', -2147483648),
+    seed: int('seed', -2147483648), night,
     ticks: int('ticks', 0),
     snapshotEvery: int('snapshot-every', 1, 10),
     out: opts.out, scenario: opts.scenario, inputs: opts.inputs,
@@ -52,20 +52,20 @@ function readJson(path, label) {
 export function run(opts) {
   const scenario = opts.scenario ? validateScenario(readJson(opts.scenario, 'scenario')) : {};
   const frames = opts.inputs ? validateInputs(readJson(opts.inputs, 'inputs')).frames : [];
-  const g = createGame({ seed: opts.seed, scenario });
+  const g = createGame({ seed: opts.seed, night: opts.night, scenario });
 
   const lines = [];
   const push = (o) => lines.push(JSON.stringify(o));
   push(snapshot(g)); // tick 0: after scenario setup, before any input
   let lastSnap = 0, fi = 0;
-  const cur = { move: [0, 0], camYawDeg: 0, jump: false, interact: false, pulse: false, dash: false };
+  const cur = { move: [0, 0], camYawDeg: 0, jump: false, interact: false, pulse: false, dash: false, pause: false };
 
-  for (let k = 0; k < opts.ticks && g.state === 'playing'; k++) {
+  for (let k = 0; k < opts.ticks && g.state === 'playing'; k++) { // paused ticks still count
     if (fi < frames.length && frames[fi].tick === k) {
       const f = frames[fi++];
       if (f.move !== undefined) cur.move = f.move;
       if (f.cam_yaw_deg !== undefined) cur.camYawDeg = f.cam_yaw_deg;
-      for (const b of ['jump', 'interact', 'pulse', 'dash']) if (f[b] !== undefined) cur[b] = f[b];
+      for (const b of ['jump', 'interact', 'pulse', 'dash', 'pause']) if (f[b] !== undefined) cur[b] = f[b];
     }
     stepGame(g, cur);
     for (const e of g.events) push(eventLine(e));
@@ -73,7 +73,7 @@ export function run(opts) {
     if (g.steps % opts.snapshotEvery === 0) { push(snapshot(g)); lastSnap = g.steps; }
   }
   if (lastSnap !== g.steps) push(snapshot(g)); // final state, in case the run did not end on a snapshot tick
-  push({ type: 'end', ticks: g.steps, state: g.state, score: g.score });
+  push({ type: 'end', ticks: g.steps, state: g.paused && g.state === 'playing' ? 'paused' : g.state, score: g.score });
 
   mkdirSync(dirname(opts.out) || '.', { recursive: true });
   writeFileSync(opts.out, lines.join('\n') + '\n');

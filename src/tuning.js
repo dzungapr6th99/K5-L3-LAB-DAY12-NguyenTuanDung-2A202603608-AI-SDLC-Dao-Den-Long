@@ -1,41 +1,77 @@
-// Single source of truth for every gameplay number. game.contract.json mirrors this
-// (checked by test/contract.test.js).
+// Standard numbers from Ticket-02 (Contract v1.1). Single source of truth: game.contract.json
+// mirrors TUNING (checked by test/contract.test.js). Do not change without a ticket.
 export const TUNING = {
-  player_speed: 6,          // m/s on the XZ plane
-  carry_capacity: 5,        // max motes (light) carried
-  lantern_cost: 8,          // motes needed to light one lantern
+  player_speed: 6.0,        // m/s
+  carry_capacity: 10,
+  lantern_cost: 10,         // motes to light one lantern (can be deposited over several visits)
   lantern_count_night1: 5,
-  pickup_radius: 1.5,       // auto pickup of motes
-  interact_radius: 3,       // deposit range to a lantern
-  pulse_cost: 1,            // motes spent per pulse
-  pulse_radius: 8,
+  pickup_radius: 1.0,       // XZ, plus |dy| <= 1.5
+  interact_radius: 2.0,
+  pulse_cost: 3,            // motes spent per Tỏa Sáng
+  pulse_radius: 5,          // 3D, from player feet + 0.8
   night1_duration_s: 300,
-  flames: 3,                // health
-  invuln_s: 2,              // invulnerability after being hit
-  hit_drop_ratio: 0.5,      // fraction of carried motes dropped when hit (floor)
-  pulse_stun_s: 3,
-  pulse_push_m: 3,
-  pulse_cooldown_s: 2,
-  safe_radius: 5,           // shades cannot enter this radius around a LIT lantern
-  shade_speed: 3.5,
-  shade_hit_radius: 1.2,
-  fall_enabled: false,      // island edge is a soft wall, no fall penalty
-  score: { per_mote: 10, per_lantern: 100, per_stun: 25, per_second_left: 1, per_flame_left: 50 },
+  flames: 3,
+  invuln_s: 1.5,            // 90 ticks
+  hit_drop_ratio: 0.5,      // floor(carried / 2)
+  pulse_stun_s: 2,          // 120 ticks
+  pulse_push_m: 4,          // over the first 15 ticks of the stun
+  pulse_cooldown_s: 3,
+  safe_radius: 6,
+  shade_speed: 4.0,         // Night 3: 4.5 (see maps.js)
+  shade_hit_radius: 1.0,
+  fall_enabled: true,
+  dash_speed: 14,
+  dash_duration_s: 0.2,
+  dash_cooldown_s: 1.5,
+  night2_duration_s: 330,
+  night3_duration_s: 360,
+  score: { per_mote: 10, per_lantern: 100, per_stun: 5, per_second_left: 2, per_flame_left: 50 },
 };
 
-// Internal (non-contract) constants.
-export const WORLD = {
-  island_radius: 40,
-  lantern_ring_radius: 25,
-  jump_speed: 6,
-  gravity: 18,
-  random_mote_count: 40,
-  mote_respawn_ticks: 120,
-  initial_shades: 2,
-  shade_spawn_interval_s: 20,
-  shade_max: 5,
-  shade_spawn_min_dist: 20,
-  hit_scatter_min: 2.5,
-  hit_scatter_max: 4,
-  shade_y: 1.0,
+// Other ticket constants (not part of the contract tuning block).
+export const RULES = {
+  jump_speed: 7.0,
+  gravity: 20.0,
+  step_height: 0.35,        // max ledge a walker can step up
+  fall_y: -10,
+  fall_wait_ticks: 60,
+  respawn_invuln_ticks: 90,
+  pickup_dy: 1.5,
+  hit_dy: 1.5,
+  mote_start: 20,
+  mote_cap: 30,
+  mote_spawn_every: 240,
+  dropped_ttl_ticks: 480,
+  drop_ring_min: 1.5,
+  drop_ring_max: 2.5,
+  pulse_center_dy: 0.8,
+  pulse_push_ticks: 15,
+  detect_m: 12,
+  lose_m: 18,
+  recoil_m: 2,
+  recoil_ticks: 60,
+  spawning_ticks: 60,
+  wander_speed: 1.5,
+  safe_push_ticks: 30,
+  shade_first_spawn_tick: 300,
+  shade_first_spawn_count: 2,
+  shade_spawn_min_dist: 15,
+  drifter_speed: 7,
+  drifter_idle_speed: 2,
+  drifter_max: 2,
+  drifter_every: 1200,
+  drifter_trigger_carried: 5,
+  drifter_trigger_m: 15,
+  drifter_touch_m: 1.2,
+  drifter_steal: 3,
+  drifter_flee_ticks: 240,
+  drifter_drop_vanish_ticks: 120,
+  charm_ticks: 600,
+  charm_respawn_ticks: 2700,
+  charm_speed: 7.2,
+  dash_charm_free: true,
+  wind_every: 1800,
+  wind_len: 300,
+  wind_warn: 120,
+  wind_push: 2,
 };
