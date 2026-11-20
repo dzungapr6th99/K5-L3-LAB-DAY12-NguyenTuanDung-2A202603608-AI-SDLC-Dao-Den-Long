@@ -1,4 +1,4 @@
-// Bundles the web game (web/index.html + web/main.js + src/*.js) into ONE self-contained HTML page
+// Bundles the web game (web/index.html + web/*.js + src/*.js) into ONE self-contained HTML page
 // for publishing as a Claude Code Artifact. Only three.js comes from a CDN (jsDelivr, pinned).
 //   node scripts/build-artifact.js  ->  out/artifact.html
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
@@ -16,17 +16,15 @@ const bodyMarkup = /<body>([\s\S]*?)<script type="module"/.exec(html)[1];
 
 const code = [
   strip(read('src/tuning.js')),
-  'const T = TUNING, W = WORLD;',
-  strip(read('src/rng.js')),
-  strip(read('src/sim.js')),
-  strip(read('web/main.js')),
+  'const T = TUNING, R = RULES;',
+  ...['src/rng.js', 'src/maps.js', 'src/sim.js', 'web/audio.js', 'web/world.js', 'web/main.js'].map((f) => strip(read(f))),
 ].join('\n');
 
 const page = `<title>Đảo Đèn Lồng</title>
 <meta name="description" content="Game 3D: Mây gom đom đóm, thắp lại năm Đèn Lồng Lớn và né Bóng Mực.">
 <style>
 html, body { height: 100%; }
-body { margin: 0; overflow: hidden; background: #0b0716; color: #ffe9c4; font: 14px "Segoe UI", system-ui, sans-serif; }
+body { margin: 0; overflow: hidden; background: #0e1430; color: #f5f1e6; font: 14px "Segoe UI", system-ui, sans-serif; }
 ${css.replace(/html, body \{[^}]*\}/, '')}
 </style>
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@${three}/build/three.module.js"}}</script>

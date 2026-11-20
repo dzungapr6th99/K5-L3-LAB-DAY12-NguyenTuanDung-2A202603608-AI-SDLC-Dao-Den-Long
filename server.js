@@ -13,6 +13,7 @@ createServer(async (req, res) => {
   try {
     let url = decodeURIComponent(new URL(req.url, 'http://x').pathname);
     if (url === '/') url = '/web/index.html';
+    if (url === '/favicon.ico') { res.writeHead(204); res.end(); return; }
     const file = normalize(join(root, url));
     const ok = file.startsWith(root + sep) && allowed.some((d) => file.startsWith(join(root, d) + sep));
     if (!ok) { res.writeHead(404); res.end('not found'); return; }

@@ -1,3 +1,5 @@
+export const r3 = (v) => { const x = Math.round(v * 1000) / 1000; return x === 0 ? 0 : x; };
+
 // mulberry32: tiny deterministic PRNG. Same seed -> same sequence on every machine.
 export function makeRng(seed) {
   let a = seed >>> 0;

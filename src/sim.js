@@ -2,12 +2,11 @@
 // No DOM, no Three.js, no Date/Math.random. Shared by the headless CLI and the web client.
 // One call to stepGame() = one tick, processed in the mandatory order of the ticket (steps 1-11).
 import { TUNING as T, RULES as R } from './tuning.js';
-import { makeRng } from './rng.js';
+import { makeRng, r3 } from './rng.js';
 import { getMap, groundAt, blockedAt, walkFloor } from './maps.js';
 
 export const TICK_RATE = 60;
 const ticks = (s) => Math.round(s * TICK_RATE);
-export const r3 = (v) => { const x = Math.round(v * 1000) / 1000; return x === 0 ? 0 : x; };
 const dxz = (a, b) => Math.hypot(a[0] - b[0], a[2] - b[2]);
 const dist3 = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
 const idNum = (id) => Number(/(\d+)$/.exec(id)?.[1] ?? 0);

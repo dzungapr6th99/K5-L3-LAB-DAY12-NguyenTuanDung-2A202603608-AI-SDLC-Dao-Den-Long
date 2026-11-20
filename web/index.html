@@ -5,41 +5,64 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Đảo Đèn Lồng</title>
 <style>
-  :root { --amber:#ffb84a; --ink:#1a1030; --violet:#7a4cff; }
-  html, body { margin:0; height:100%; background:#0b0716; overflow:hidden; font-family: "Segoe UI", system-ui, sans-serif; color:#ffe9c4; }
+  :root { --amber:#ffb347; --core:#ffe9b0; --gold:#f2c14e; --danger:#ff5a5f; --text:#f5f1e6; --sky:#0e1430; --fog:#1b2350; --red:#c8102e; }
+  html, body { margin:0; height:100%; background:var(--sky); overflow:hidden; font-family:"Segoe UI", system-ui, sans-serif; color:var(--text); }
   canvas { display:block; }
-  #hud { position:fixed; inset:0; pointer-events:none; }
-  .panel { position:absolute; background:rgba(20,10,40,.55); border:1px solid rgba(255,184,74,.35); border-radius:12px; padding:8px 14px; backdrop-filter: blur(4px); }
+  #hud { position:fixed; inset:0; pointer-events:none; user-select:none; }
+  .panel { position:absolute; background:rgba(14,20,48,.62); border:1px solid rgba(242,193,78,.4); border-radius:12px; padding:8px 14px; backdrop-filter:blur(4px); }
   #tl { top:12px; left:12px; } #tr { top:12px; right:12px; text-align:right; }
-  #bl { bottom:12px; left:12px; font-size:13px; opacity:.85; }
-  #br { bottom:12px; right:12px; min-width:150px; }
-  .big { font-size:22px; font-weight:700; color:var(--amber); }
-  .flames { font-size:24px; letter-spacing:4px; color:#ff9a2e; }
-  .flames .off { color:#4a3a60; }
-  .bar { height:10px; background:#2a1c46; border-radius:6px; overflow:hidden; margin-top:4px; }
-  .bar > i { display:block; height:100%; background:linear-gradient(90deg,#ffd27a,#ff9a2e); width:0; }
-  #toast { position:absolute; top:70px; left:50%; transform:translateX(-50%); padding:6px 14px; border-radius:20px; background:rgba(20,10,40,.7); opacity:0; transition:opacity .3s; }
-  #hit { position:absolute; inset:0; background:radial-gradient(transparent 40%, rgba(90,30,170,.55)); opacity:0; transition:opacity .4s; }
-  #overlay { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(8,4,20,.72); text-align:center; z-index:5; }
-  #overlay .card { max-width:520px; padding:28px 34px; background:rgba(30,16,56,.92); border:1px solid rgba(255,184,74,.5); border-radius:18px; }
-  #overlay h1 { margin:0 0 8px; color:var(--amber); font-size:34px; }
-  #overlay p { line-height:1.5; margin:8px 0; }
-  button { pointer-events:auto; cursor:pointer; font-size:18px; padding:10px 26px; border-radius:24px; border:0; background:var(--amber); color:#2b1600; font-weight:700; margin-top:12px; }
-  button:hover { filter:brightness(1.1); }
-  kbd { background:#3a2a5c; border-radius:4px; padding:1px 6px; }
+  #tc { top:12px; left:50%; transform:translateX(-50%); text-align:center; min-width:120px; }
+  #clock { font-size:28px; font-weight:700; font-variant-numeric:tabular-nums; }
+  #clock.low { color:var(--danger); animation:blink .8s steps(2) infinite; }
+  @keyframes blink { 50% { opacity:.25; } }
+  #nightname { font-size:12px; opacity:.8; }
+  .flames { font-size:26px; letter-spacing:4px; color:var(--amber); } .flames .off { color:#3a3450; }
+  .gold { color:var(--gold); } .big { font-size:34px; }
+  #score { font-size:24px; font-weight:700; color:var(--gold); font-variant-numeric:tabular-nums; }
+  #bc { bottom:14px; left:50%; transform:translateX(-50%); display:flex; gap:5px; padding:8px 12px; }
+  #cells { display:flex; gap:5px; }
+  #cells i { width:20px; height:20px; border-radius:50%; background:#27305f; border:1px solid rgba(255,229,138,.3); }
+  #cells i.on { background:radial-gradient(#fff6c2, #ffe58a 60%, #ffb347); box-shadow:0 0 8px #ffe58a; }
+  #br { bottom:14px; right:12px; display:flex; gap:10px; align-items:center; }
+  .cd { width:54px; height:54px; border-radius:12px; border:1px solid rgba(242,193,78,.5); position:relative; display:flex; align-items:center; justify-content:center; font-size:12px; text-align:center; line-height:1.1;
+        background:conic-gradient(rgba(0,0,0,.65) var(--cd, 0deg), rgba(255,255,255,.07) 0); }
+  .cd.dim { opacity:.45; } .cd.charm { border-color:var(--red); box-shadow:0 0 10px var(--red); }
+  #charmt { position:absolute; bottom:78px; right:14px; font-size:12px; color:var(--gold); }
+  #bl { bottom:14px; left:12px; font-size:12px; opacity:.75; max-width:260px; }
+  #prompt { position:absolute; bottom:84px; left:50%; transform:translateX(-50%); font-size:18px; background:rgba(14,20,48,.7); padding:6px 16px; border-radius:20px; border:1px solid var(--amber); opacity:0; transition:opacity .15s; }
+  #toast { position:absolute; top:84px; left:50%; transform:translateX(-50%); padding:6px 14px; border-radius:20px; background:rgba(14,20,48,.75); opacity:0; transition:opacity .3s; white-space:nowrap; }
+  #windwarn { position:absolute; top:130px; left:50%; transform:translateX(-50%); color:#8fa3b8; font-size:18px; opacity:0; transition:opacity .3s; }
+  #hit { position:absolute; inset:0; background:radial-gradient(transparent 40%, rgba(122,60,255,.5)); opacity:0; transition:opacity .4s; }
+  #arrow { position:absolute; left:0; top:0; width:0; height:0; border-left:14px solid transparent; border-right:14px solid transparent; border-bottom:30px solid var(--amber); margin:-15px 0 0 -14px; opacity:0; filter:drop-shadow(0 0 6px var(--amber)); }
+  #overlay { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(8,10,28,.72); text-align:center; z-index:5; }
+  #card { max-width:540px; padding:28px 34px; background:rgba(20,28,64,.94); border:1px solid rgba(242,193,78,.55); border-radius:18px; }
+  #card h1 { margin:0 0 8px; color:var(--amber); font-size:32px; }
+  #card p { line-height:1.5; margin:8px 0; } #card .quote { font-style:italic; color:var(--core); }
+  #card .keys { font-size:13px; opacity:.85; }
+  #card label { display:block; margin:14px 0; text-align:left; } #card input[type=range] { width:100%; display:block; margin-top:6px; }
+  button { cursor:pointer; font-size:18px; padding:10px 26px; border-radius:24px; border:0; background:var(--amber); color:#2b1600; font-weight:700; margin:10px 4px 0; }
+  button.alt { background:transparent; color:var(--text); border:1px solid rgba(245,241,230,.5); }
+  button:hover { filter:brightness(1.12); }
+  kbd { background:#27305f; border-radius:4px; padding:1px 6px; }
 </style>
 <script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js"}}</script>
 </head>
 <body>
 <div id="hud">
   <div id="tl" class="panel"><div class="flames" id="flames"></div><div>Đèn đã thắp: <b id="lit">0/5</b></div></div>
-  <div id="tr" class="panel"><div class="big" id="score">0</div><div>Còn lại <b id="time">5:00</b></div></div>
-  <div id="bl" class="panel"><kbd>WASD</kbd> đi · <kbd>Space</kbd> nhảy · <kbd>E</kbd> nạp đèn · <kbd>F</kbd> tỏa sáng · <kbd>←/→</kbd> hoặc kéo chuột: xoay camera · <kbd>R</kbd> chơi lại</div>
-  <div id="br" class="panel">Ánh sáng mang: <b id="carried">0/5</b><div class="bar"><i id="carbar"></i></div><div style="margin-top:6px;font-size:12px">Tỏa sáng: <span id="pcd">sẵn sàng</span></div></div>
+  <div id="tc" class="panel"><div id="clock">5:00</div><div id="nightname"></div></div>
+  <div id="tr" class="panel"><div id="score">0</div><div>điểm</div></div>
+  <div id="bc" class="panel"><div id="cells"></div></div>
+  <div id="br" class="panel"><div id="dash" class="cd">Lướt<br>Shift</div><div id="pulse" class="cd">Tỏa sáng<br>F</div></div>
+  <div id="charmt"></div>
+  <div id="bl" class="panel"><kbd>WASD</kbd> đi · <kbd>Space</kbd> nhảy · <kbd>Shift</kbd> lướt · <kbd>E</kbd> nạp · <kbd>F</kbd> tỏa sáng · <kbd>Esc</kbd> dừng</div>
+  <div id="prompt"></div>
   <div id="toast"></div>
+  <div id="windwarn"></div>
+  <div id="arrow"></div>
   <div id="hit"></div>
 </div>
-<div id="overlay"><div class="card" id="card"></div></div>
+<div id="overlay"><div id="card"></div></div>
 <script type="module" src="/web/main.js"></script>
 </body>
 </html>

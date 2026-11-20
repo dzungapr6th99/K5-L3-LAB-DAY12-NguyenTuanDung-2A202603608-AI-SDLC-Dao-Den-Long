@@ -1,0 +1,212 @@
+
+> dao-den-long@0.1.0 test
+> node --test "test/**/*.test.js"
+
+TAP version 13
+# Subtest: exit 0, tick-0 snapshot, end line, exactly N steps, v1.1 snapshot fields
+ok 1 - exit 0, tick-0 snapshot, end line, exactly N steps, v1.1 snapshot fields
+  ---
+  duration_ms: 83.7928
+  type: 'test'
+  ...
+# Subtest: deterministic per night: same seed/scenario/inputs -> identical bytes; seeds differ
+ok 2 - deterministic per night: same seed/scenario/inputs -> identical bytes; seeds differ
+  ---
+  duration_ms: 1380.4706
+  type: 'test'
+  ...
+# Subtest: movement: 6.0 m/s, full air control, camera yaw, normalised diagonals
+ok 3 - movement: 6.0 m/s, full air control, camera yaw, normalised diagonals
+  ---
+  duration_ms: 398.8962
+  type: 'test'
+  ...
+# Subtest: jump: 7 m/s, gravity -20, only from the ground, full air control
+ok 4 - jump: 7 m/s, gravity -20, only from the ground, full air control
+  ---
+  duration_ms: 82.9569
+  type: 'test'
+  ...
+# Subtest: mote pickup: radius 1.0 XZ, height diff <= 1.5, capacity 10, no score on pickup
+ok 5 - mote pickup: radius 1.0 XZ, height diff <= 1.5, capacity 10, no score on pickup
+  ---
+  duration_ms: 395.732
+  type: 'test'
+  ...
+# Subtest: deposit: radius 2.0, partial deposits are remembered, +10 per mote, +100 per lantern
+ok 6 - deposit: radius 2.0, partial deposits are remembered, +10 per mote, +100 per lantern
+  ---
+  duration_ms: 683.207
+  type: 'test'
+  ...
+# Subtest: win: all lit, bonus floor(seconds)*2 + 50*flames; win on the exact timeout tick; setup is silent
+ok 7 - win: all lit, bonus floor(seconds)*2 + 50*flames; win on the exact timeout tick; setup is silent
+  ---
+  duration_ms: 247.8358
+  type: 'test'
+  ...
+# Subtest: lose: dawn at time 0; no_flames always wins over a same-tick victory
+ok 8 - lose: dawn at time 0; no_flames always wins over a same-tick victory
+  ---
+  duration_ms: 179.5888
+  type: 'test'
+  ...
+# Subtest: pulse: 3 motes, 3D radius 5 from feet+0.8, cooldown 3 s, stun 120 ticks, push 4 m in 15 ticks, +5 each
+ok 9 - pulse: 3 motes, 3D radius 5 from feet+0.8, cooldown 3 s, stun 120 ticks, push 4 m in 15 ticks, +5 each
+  ---
+  duration_ms: 92.4421
+  type: 'test'
+  ...
+# Subtest: pulse: not enough light does nothing; cooldown blocks until tick 181; hits refresh stun; stunned shades are harmless
+ok 10 - pulse: not enough light does nothing; cooldown blocks until tick 181; hits refresh stun; stunned shades are harmless
+  ---
+  duration_ms: 503.4136
+  type: 'test'
+  ...
+# Subtest: shade AI: detect 12 m / lose 18 m, 4.0 m/s (Night 3: 4.5), wander otherwise
+ok 11 - shade AI: detect 12 m / lose 18 m, 4.0 m/s (Night 3: 4.5), wander otherwise
+  ---
+  duration_ms: 473.0973
+  type: 'test'
+  ...
+# Subtest: shade spawns: 2 at tick 300 then every 480 ticks (Night 1), max 6, ids in order, spawning state
+ok 12 - shade spawns: 2 at tick 300 then every 480 ticks (Night 1), max 6, ids in order, spawning state
+  ---
+  duration_ms: 323.3633
+  type: 'test'
+  ...
+# Subtest: being hit: -1 flame, floor(carried/2) drop on a 1.5-2.5 m ring (480 ticks), invuln 90, recoil 2 m, 1 hit per tick
+ok 13 - being hit: -1 flame, floor(carried/2) drop on a 1.5-2.5 m ring (480 ticks), invuln 90, recoil 2 m, 1 hit per tick
+  ---
+  duration_ms: 533.0094
+  type: 'test'
+  ...
+# Subtest: dropped motes vanish after 480 ticks and can be picked up again from the next tick
+ok 14 - dropped motes vanish after 480 ticks and can be picked up again from the next tick
+  ---
+  duration_ms: 191.3176
+  type: 'test'
+  ...
+# Subtest: safe zone: 6 m around lit lanterns blocks shades; a freshly lit lantern pushes shades out within 30 ticks without damage
+ok 15 - safe zone: 6 m around lit lanterns blocks shades; a freshly lit lantern pushes shades out within 30 ticks without damage
+  ---
+  duration_ms: 302.112
+  type: 'test'
+  ...
+# Subtest: falling: Y < -10 loses a flame and all motes once, waits 60 ticks, respawns at the start with invuln 90
+ok 16 - falling: Y < -10 loses a flame and all motes once, waits 60 ticks, respawns at the start with invuln 90
+  ---
+  duration_ms: 272.0494
+  type: 'test'
+  ...
+# Subtest: random motes: 20 distinct points at start, +1 every 240 ticks up to the free points (Night 1: 24), none when disabled
+ok 17 - random motes: 20 distinct points at start, +1 every 240 ticks up to the free points (Night 1: 24), none when disabled
+  ---
+  duration_ms: 642.5249
+  type: 'test'
+  ...
+# Subtest: malformed inputs/scenario -> exit 2 with stderr; other errors non-zero
+ok 18 - malformed inputs/scenario -> exit 2 with stderr; other errors non-zero
+  ---
+  duration_ms: 1152.2798
+  type: 'test'
+  ...
+# Subtest: dash: 14 m/s for 12 ticks in the facing/move direction, cooldown 90 ticks from the start, event
+ok 19 - dash: 14 m/s for 12 ticks in the facing/move direction, cooldown 90 ticks from the start, event
+  ---
+  duration_ms: 656.6631
+  type: 'test'
+  ...
+# Subtest: Night 2 map: two islands joined by a bridge, 6 lanterns, 330 s, no rails
+ok 20 - Night 2 map: two islands joined by a bridge, 6 lanterns, 330 s, no rails
+  ---
+  duration_ms: 260.9159
+  type: 'test'
+  ...
+# Subtest: Night 2 bounce pad: launched at vy 14 / 24 m/s toward the other island, keys do not steer, can dash
+ok 21 - Night 2 bounce pad: launched at vy 14 / 24 m/s toward the other island, keys do not steer, can dash
+  ---
+  duration_ms: 257.3452
+  type: 'test'
+  ...
+# Subtest: Night 2: shades every 420 ticks (max 8), drifters at tick 1200, 2400 (max 2), 1 charm
+ok 22 - Night 2: shades every 420 ticks (max 8), drifters at tick 1200, 2400 (max 2), 1 charm
+  ---
+  duration_ms: 477.1871
+  type: 'test'
+  ...
+# Subtest: Night 3 map: tiers, vertical cliffs, ramps, bell tower; 7 lanterns, 360 s
+ok 23 - Night 3 map: tiers, vertical cliffs, ramps, bell tower; 7 lanterns, 360 s
+  ---
+  duration_ms: 497.2921
+  type: 'test'
+  ...
+# Subtest: Night 3 bounce pad (0,3,13): vy 12 and 8 m/s toward -Z lands on tier 2
+ok 24 - Night 3 bounce pad (0,3,13): vy 12 and 8 m/s toward -Z lands on tier 2
+  ---
+  duration_ms: 94.3267
+  type: 'test'
+  ...
+# Subtest: Night 3 wind: 5 s gust every 30 s pushing 2 m/s; snapshot wind {active, dir_deg}; only with wind_enabled
+ok 25 - Night 3 wind: 5 s gust every 30 s pushing 2 m/s; snapshot wind {active, dir_deg}; only with wind_enabled
+  ---
+  duration_ms: 411.2412
+  type: 'test'
+  ...
+# Subtest: Night 3: shades 4.5 m/s every 360 ticks, max 10; 30 motes; 2 charms
+ok 26 - Night 3: shades 4.5 m/s every 360 ticks, max 10; 30 motes; 2 charms
+  ---
+  duration_ms: 338.2624
+  type: 'test'
+  ...
+# Subtest: drifter: idle -> chase (carried >= 5, <= 15 m), steals min(3, carried) once, flees 240 ticks and vanishes with the loot
+ok 27 - drifter: idle -> chase (carried >= 5, <= 15 m), steals min(3, carried) once, flees 240 ticks and vanishes with the loot
+  ---
+  duration_ms: 519.9679
+  type: 'test'
+  ...
+# Subtest: drifter vs Tỏa Sáng: chase -> flee without stealing; fleeing with loot -> drops everything, vanishes after 120 ticks
+ok 28 - drifter vs Tỏa Sáng: chase -> flee without stealing; fleeing with loot -> drops everything, vanishes after 120 ticks
+  ---
+  duration_ms: 167.6915
+  type: 'test'
+  ...
+# Subtest: charm: pickup event, 600 ticks of 7.2 m/s and free dashes, refresh on re-pickup, respawns after 2700 ticks
+ok 29 - charm: pickup event, 600 ticks of 7.2 m/s and free dashes, refresh on re-pickup, respawns after 2700 ticks
+  ---
+  duration_ms: 666.9825
+  type: 'test'
+  ...
+# Subtest: pause: tick keeps counting, sim_tick/time/cooldowns/spawns freeze, snapshot state "paused", paused/resumed events
+ok 30 - pause: tick keeps counting, sim_tick/time/cooldowns/spawns freeze, snapshot state "paused", paused/resumed events
+  ---
+  duration_ms: 246.1313
+  type: 'test'
+  ...
+# Subtest: night_start event: once, on the first tick, carries the night
+ok 31 - night_start event: once, on the first tick, carries the night
+  ---
+  duration_ms: 238.4078
+  type: 'test'
+  ...
+# Subtest: Contract v1.1: version, standard numbers, new keys, top-level score
+ok 32 - Contract v1.1: version, standard numbers, new keys, top-level score
+  ---
+  duration_ms: 1.0331
+  type: 'test'
+  ...
+# Subtest: performance: a full Night (21600 ticks) headless run finishes well under 30 s
+ok 33 - performance: a full Night (21600 ticks) headless run finishes well under 30 s
+  ---
+  duration_ms: 1669.4195
+  type: 'test'
+  ...
+1..33
+# tests 33
+# suites 0
+# pass 33
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 8062.9084

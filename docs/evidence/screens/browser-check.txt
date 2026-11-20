@@ -1,0 +1,14 @@
+ĐẠT  menu loads
+ĐẠT  night 1: starts, simulates, W moves Mây (9.3 m), fps 60.0
+ĐẠT  night 1: Esc pauses (sim_tick frozen at 275)
+ĐẠT  night 1: Esc resumes
+ĐẠT  night 2: starts, simulates, W moves Mây (8.8 m), fps 60.0
+ĐẠT  night 2: Esc pauses (sim_tick frozen at 260)
+ĐẠT  night 2: Esc resumes
+ĐẠT  night 3: starts, simulates, W moves Mây (7.0 m), fps 60.0
+ĐẠT  night 3: Esc pauses (sim_tick frozen at 262)
+ĐẠT  night 3: Esc resumes
+ĐẠT  all lanterns lit -> win overlay (Đêm kế tiếp)
+
+Chrome: C:/Program Files/Google/Chrome/Application/chrome.exe
+GPU: real GPU (default ANGLE backend).

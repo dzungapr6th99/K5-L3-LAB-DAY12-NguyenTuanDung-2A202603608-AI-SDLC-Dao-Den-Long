@@ -2,9 +2,9 @@
 // Angles: position = (r cos a, y, r sin a) in the XZ plane (a measured from +X toward +Z, so the
 // Night 3 "z > 0" half matches the 20..160 degree spawn points).
 import { TUNING as T, RULES as R } from './tuning.js';
+import { r3 } from './rng.js';
 
 const D2R = Math.PI / 180;
-const r3 = (v) => { const x = Math.round(v * 1000) / 1000; return x === 0 ? 0 : x; };
 const pt = (r, a, y = 0, cx = 0, cz = 0) => [r3(cx + r * Math.cos(a * D2R)), y, r3(cz + r * Math.sin(a * D2R))];
 const ring = (r, start, step, count, y = 0, cx = 0, cz = 0) =>
   Array.from({ length: count }, (_, i) => pt(r, start + i * step, y, cx, cz));
