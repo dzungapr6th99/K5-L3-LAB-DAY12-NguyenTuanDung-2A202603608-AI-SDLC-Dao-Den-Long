@@ -14,6 +14,7 @@
   #tc { top:12px; left:50%; transform:translateX(-50%); text-align:center; min-width:120px; }
   #clock { font-size:28px; font-weight:700; font-variant-numeric:tabular-nums; }
   #clock.low { color:var(--danger); animation:blink .8s steps(2) infinite; }
+  body.cb { --danger:#ffffff; } /* colour-blind palette */
   @keyframes blink { 50% { opacity:.25; } }
   #nightname { font-size:12px; opacity:.8; }
   .flames { font-size:26px; letter-spacing:4px; color:var(--amber); } .flames .off { color:#3a3450; }
@@ -49,10 +50,10 @@
 </head>
 <body>
 <div id="hud">
-  <div id="tl" class="panel"><div class="flames" id="flames"></div><div>Đèn đã thắp: <b id="lit">0/5</b></div></div>
+  <div id="tl" class="panel"><div class="flames" id="flames"></div><div>Đèn sáng: <b id="lit">0/5</b></div></div>
   <div id="tc" class="panel"><div id="clock">5:00</div><div id="nightname"></div></div>
   <div id="tr" class="panel"><div id="score">0</div><div>điểm</div></div>
-  <div id="bc" class="panel"><div id="cells"></div></div>
+  <div id="bc" class="panel"><div id="cells"></div><div id="carry" style="margin-left:8px;min-width:46px;font-variant-numeric:tabular-nums">0/10</div></div>
   <div id="br" class="panel"><div id="dash" class="cd">Lướt<br>Shift</div><div id="pulse" class="cd">Tỏa sáng<br>F</div></div>
   <div id="charmt"></div>
   <div id="bl" class="panel"><kbd>WASD</kbd> đi · <kbd>Space</kbd> nhảy · <kbd>Shift</kbd> lướt · <kbd>E</kbd> nạp · <kbd>F</kbd> tỏa sáng · <kbd>Esc</kbd> dừng</div>

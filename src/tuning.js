@@ -1,4 +1,4 @@
-// Standard numbers from Ticket-02 (Contract v1.1). Single source of truth: game.contract.json
+// Standard numbers from Ticket-02 and Ticket-03 (Contract v1.2). Single source of truth: game.contract.json
 // mirrors TUNING (checked by test/contract.test.js). Do not change without a ticket.
 export const TUNING = {
   player_speed: 6.0,        // m/s
@@ -9,7 +9,7 @@ export const TUNING = {
   interact_radius: 2.0,
   pulse_cost: 3,            // motes spent per Tỏa Sáng
   pulse_radius: 5,          // 3D, from player feet + 0.8
-  night1_duration_s: 300,
+  night1_duration_s: 240,
   flames: 3,
   invuln_s: 1.5,            // 90 ticks
   hit_drop_ratio: 0.5,      // floor(carried / 2)
@@ -23,13 +23,26 @@ export const TUNING = {
   dash_speed: 14,
   dash_duration_s: 0.2,
   dash_cooldown_s: 1.5,
-  night2_duration_s: 330,
-  night3_duration_s: 360,
-  score: { per_mote: 10, per_lantern: 100, per_stun: 5, per_second_left: 2, per_flame_left: 50 },
+  night2_duration_s: 270,
+  night3_duration_s: 300,
+  fuel_max: 100,
+  fuel_decay_per_s: 1.0,
+  fuel_per_mote: 10,
+  relight_cost: 5,
+  win_ratio: 0.6,
+  drain_per_s: 5,
+  low_fuel_threshold: 30,
+  capacity_max: 20,
+  // Ticket-03: per mote deposited/refuelled, first light, stun (15 if it was draining), no time bonus.
+  score: { per_mote: 5, per_lantern: 100, per_stun: 5, per_second_left: 0, per_flame_left: 50, per_relight: 40, per_stun_drain: 15, per_lit_lantern_dawn: 50 },
 };
 
 // Other ticket constants (not part of the contract tuning block).
 export const RULES = {
+  capacity_per_light: 2,    // capacity = 10 + 2 * successful lights (max 20)
+  drain_range_m: 2,
+  drain_exit_player_m: 6,
+  drain_event_every: 60,
   jump_speed: 7.0,
   gravity: 20.0,
   step_height: 0.35,        // max ledge a walker can step up

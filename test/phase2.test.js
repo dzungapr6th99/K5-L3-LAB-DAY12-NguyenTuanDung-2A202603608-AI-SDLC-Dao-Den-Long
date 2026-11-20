@@ -27,9 +27,9 @@ test('dash: 14 m/s for 12 ticks in the facing/move direction, cooldown 90 ticks 
   assert.ok(hit.ev('player_hit').length >= 1, 'no invulnerability while dashing');
 });
 
-test('Night 2 map: two islands joined by a bridge, 6 lanterns, 330 s, no rails', () => {
+test('Night 2 map: two islands joined by a bridge, 6 lanterns, 270 s, no rails', () => {
   const x = run({ night: 2, scenario: sc(), frames: [{ tick: 0, move: [1, 0] }], ticks: 800, every: 50 });
-  assert.equal(x.snaps[0].night, 2); assert.equal(x.snaps[0].time_left_s, 330);
+  assert.equal(x.snaps[0].night, 2); assert.equal(x.snaps[0].time_left_s, 270); // Ticket-03: 330 -> 270
   assert.equal(x.snaps[0].lanterns.length, 6);
   assert.deepEqual(x.snaps[0].lanterns.map((l) => l.pos.join()), ['0,0,20', '17,0,-10', '-17,0,-10', '70,0,20', '87,0,-10', '53,0,-10']);
   assert.equal(x.ev('player_hit').length, 0); // crossed the bridge, no fall
@@ -69,9 +69,9 @@ test('Night 2: shades every 420 ticks (max 8), drifters at tick 1200, 2400 (max 
   assert.equal(n1.snap(1200).drifters.length, 0); // Night 1 has no drifters
 });
 
-test('Night 3 map: tiers, vertical cliffs, ramps, bell tower; 7 lanterns, 360 s', () => {
+test('Night 3 map: tiers, vertical cliffs, ramps, bell tower; 7 lanterns, 300 s', () => {
   const s0 = run({ night: 3, scenario: sc(), ticks: 1 }).snaps[0];
-  assert.equal(s0.time_left_s, 360); assert.equal(s0.lanterns.length, 7);
+  assert.equal(s0.time_left_s, 300); // Ticket-03: 360 -> 300 assert.equal(s0.lanterns.length, 7);
   assert.deepEqual(s0.lanterns.map((l) => l.pos.join()), ['0,6,6', '18,3,10', '-18,3,10', '35,0,-10', '-35,0,-10', '20,0,-35', '-20,0,-35']);
   // vertical cliff: tier 1 (annulus r 12-24, z>0) cannot be walked onto from tier 0
   const wall = run({ night: 3, scenario: sc({ player: { pos: [0, 0, 10] } }), frames: [{ tick: 0, move: [0, 1] }], ticks: 120 }).snaps.at(-1);
@@ -210,19 +210,22 @@ test('night_start event: once, on the first tick, carries the night', () => {
   }
 });
 
-test('Contract v1.1: version, standard numbers, new keys, top-level score', () => {
+test('Contract v1.2: version, standard numbers, new keys, top-level score', () => {
   const c = JSON.parse(readFileSync('game.contract.json', 'utf8'));
-  assert.equal(c.contract_version, '1.1');
+  assert.equal(c.contract_version, '1.2');
   for (const k of ['team', 'build_cmd', 'run_cmd', 'headless_cmd']) assert.equal(typeof c[k], 'string');
   assert.deepEqual(c.tuning, T);
   const standard = {
     player_speed: 6, carry_capacity: 10, lantern_cost: 10, lantern_count_night1: 5, pickup_radius: 1, interact_radius: 2,
-    pulse_cost: 3, pulse_radius: 5, night1_duration_s: 300, flames: 3, invuln_s: 1.5, hit_drop_ratio: 0.5, pulse_stun_s: 2,
+    pulse_cost: 3, pulse_radius: 5, night1_duration_s: 240, flames: 3, invuln_s: 1.5, hit_drop_ratio: 0.5, pulse_stun_s: 2,
     pulse_push_m: 4, pulse_cooldown_s: 3, safe_radius: 6, shade_speed: 4, shade_hit_radius: 1, fall_enabled: true,
-    dash_speed: 14, dash_duration_s: 0.2, dash_cooldown_s: 1.5, night2_duration_s: 330, night3_duration_s: 360,
+    dash_speed: 14, dash_duration_s: 0.2, dash_cooldown_s: 1.5, night2_duration_s: 270, night3_duration_s: 300,
+    fuel_max: 100, fuel_decay_per_s: 1.0, fuel_per_mote: 10, relight_cost: 5, win_ratio: 0.6, drain_per_s: 5,
+    low_fuel_threshold: 30, capacity_max: 20,
   };
   for (const [k, v] of Object.entries(standard)) assert.equal(c.tuning[k], v, k);
-  assert.deepEqual(c.tuning.score, { per_mote: 10, per_lantern: 100, per_stun: 5, per_second_left: 2, per_flame_left: 50 });
+  const sc = c.tuning.score;
+  assert.deepEqual([sc.per_mote, sc.per_lantern, sc.per_stun, sc.per_second_left, sc.per_flame_left], [5, 100, 5, 0, 50]);
   assert.deepEqual(c.score, c.tuning.score);
 });
 

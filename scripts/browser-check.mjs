@@ -81,14 +81,25 @@ for (const night of [1, 2, 3]) {
   report.push({ check: `night ${night}: Esc resumes`, ok: (await evalJs('__ddl.game.paused')) === false });
 }
 
-// 3. win path through the real UI: Night 1 with every lantern pre-lit except one is not reachable from the UI, so
-//    only the overlay chain is checked via the exposed game object.
+// 3. Ticket-03: fuel burns in the real page, colour-blind setting, dawn win overlay
 await send('Page.navigate', { url: `${base}/?seed=5&night=1` });
 await sleep(2500);
-await evalJs("(() => { const g = __ddl.game; g.lanterns.forEach((l) => { l.lit = true; }); })()");
-await sleep(800);
-report.push({ check: 'all lanterns lit -> win overlay (Đêm kế tiếp)', ok: (await evalJs("document.getElementById('card').innerText")).includes('Đêm 1 đã sáng') });
-await shot('night1-win.png');
+await evalJs("(() => { const g = __ddl.game; const l = g.lanterns[0]; l.lit = true; l.everLit = true; l.fuel = 2400; g.lanterns[1].lit = true; g.lanterns[1].everLit = true; g.lanterns[1].fuel = 6000; })()");
+const f0 = await evalJs('__ddl.game.lanterns[0].fuel'); await sleep(1500);
+const f1 = await evalJs('__ddl.game.lanterns[0].fuel');
+report.push({ check: `lit lantern burns fuel in the page (${f0} -> ${f1} units, about 1 per tick)`, ok: f0 - f1 > 60 && f0 - f1 < 140 });
+await shot('night1-fuel.png');
+await send('Page.navigate', { url: `${base}/?seed=5` }); await sleep(2500);
+await evalJs("document.getElementById('set').click()"); await sleep(300);
+await evalJs("document.getElementById('cb').click()"); await sleep(300);
+report.push({ check: 'colour-blind option applies and is saved', ok: (await evalJs("document.body.classList.contains('cb') && JSON.parse(localStorage.getItem('ddl-settings')).colorblind === true")) === true });
+await shot('settings-colorblind.png');
+await evalJs("document.getElementById('cb').click()");
+await send('Page.navigate', { url: `${base}/?seed=5&night=1` }); await sleep(2500);
+await evalJs("(() => { const g = __ddl.game; for (const l of g.lanterns.slice(0, 3)) { l.lit = true; l.everLit = true; l.fuel = 6000; } g.ticksLeft0 = g.simSteps + 2; })()");
+await sleep(1200);
+report.push({ check: 'dawn with 3/5 lanterns lit -> "Bình minh" overlay (no early win)', ok: (await evalJs("document.getElementById('card').innerText")).includes('Bình minh đã tới') });
+await shot('night1-dawn.png');
 
 ws.close(); chrome.kill(); clearTimeout(killer);
 const failed = report.filter((r) => !r.ok).length + problems.length;

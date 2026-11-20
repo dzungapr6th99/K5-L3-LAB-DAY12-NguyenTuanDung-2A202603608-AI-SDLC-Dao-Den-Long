@@ -1,6 +1,7 @@
 // Three.js scene for a Night. Reads the sim state; never changes it.
 import * as THREE from 'three';
 import { TUNING as T, RULES as R } from '/src/tuning.js';
+const TICK = 60;
 
 // Standard palette from Ticket-02
 export const PAL = {
@@ -9,6 +10,10 @@ export const PAL = {
   shade: 0x120a1a, shadeRim: 0x7a3cff, shadeStun: 0x3a3450, coat: 0xe8e2d0, scarf: 0xc8102e,
   gold: 0xf2c14e, drifter: 0x8fa3b8, danger: 0xff5a5f, text: 0xf5f1e6,
 };
+
+// Ticket-03 section 6: colour-blind palette. Shade rim/eyes #7A3CFF -> #00B3FF.
+export const style = { colorblind: false };
+const rimColor = () => (style.colorblind ? 0x00b3ff : PAL.shadeRim);
 
 const mat = (color, extra = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.9, metalness: 0, ...extra });
 const basic = (color, opacity = 1, additive = false) => new THREE.MeshBasicMaterial({ color, transparent: opacity < 1 || additive, opacity, depthWrite: opacity >= 1 && !additive, blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending });
@@ -85,15 +90,21 @@ function lanternObj(scene, l) {
   const lampMat = mat(PAL.lampOff, { emissive: PAL.lampLit, emissiveIntensity: 0 });
   const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.7, 16, 12), lampMat);
   lamp.position.y = 3.4;
+  const tear = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.5, 3), basic(0x1a1626)); // torn paper, only on a dark lantern
+  tear.position.set(0.3, 3.5, 0.55); tear.rotation.z = 0.5;
+  const barBack = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.16, 0.16), basic(0x1b2350, 0.8));
+  barBack.position.y = 4.6;
+  const bar = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.1, 0.18), basic(PAL.lampLit));
+  bar.position.y = 4.6;
   const core = new THREE.Mesh(new THREE.SphereGeometry(0.35, 12, 8), basic(PAL.lampCore, 0));
   core.position.y = 3.4;
   const light = new THREE.PointLight(PAL.lampLit, 0, 36, 1.3);
   light.position.y = 3.4;
   const safe = new THREE.Mesh(new THREE.RingGeometry(T.safe_radius - 0.15, T.safe_radius, 64), basic(PAL.lampLit, 0.35));
   safe.rotation.x = -Math.PI / 2; safe.position.y = 0.05; safe.visible = false;
-  g.add(pole, lamp, core, light, safe);
+  g.add(pole, lamp, tear, barBack, bar, core, light, safe);
   scene.add(g);
-  return { g, lampMat, core, light, safe };
+  return { g, lamp, lampMat, core, light, safe, tear, bar, barBack };
 }
 
 function makePlayer() {
@@ -120,11 +131,11 @@ function makeShadeObj() {
   const g = new THREE.Group();
   const bodyMat = mat(PAL.shade, { emissive: 0x1a0a2a, emissiveIntensity: 0.6 });
   const body = new THREE.Mesh(new THREE.SphereGeometry(0.8, 18, 14), bodyMat);
-  const rimMat = new THREE.MeshBasicMaterial({ color: PAL.shadeRim, side: THREE.BackSide, transparent: true, opacity: 0.55 });
+  const rimMat = new THREE.MeshBasicMaterial({ color: rimColor(), side: THREE.BackSide, transparent: true, opacity: 0.55 });
   const rim = new THREE.Mesh(new THREE.SphereGeometry(0.95, 18, 14), rimMat);
   g.add(body, rim);
   for (const x of [-0.28, 0.28]) {
-    const e = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), basic(0xd9b3ff));
+    const e = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), basic(style.colorblind ? 0x00b3ff : 0xd9b3ff));
     e.position.set(x, 0.15, 0.7);
     g.add(e);
   }
@@ -216,12 +227,24 @@ export function buildWorld(scene, game) {
       player.lampLight.intensity = 5 + Math.sin(t * 6) * 0.6 + (p.charm > 0 ? 2 : 0);
 
       game.lanterns.forEach((l, i) => {
-        const o = lanterns[i], level = l.lit ? 1 : (l.deposited / T.lantern_cost) * 0.6;
+        const o = lanterns[i];
+        const need = l.everLit ? T.relight_cost : T.lantern_cost;
+        const fuel = l.fuel / TICK, low = l.lit && fuel < T.low_fuel_threshold;
+        const blink = low ? (Math.floor(t * 2) % 2 === 0 ? 1 : 0.2) : 1; // 1 Hz when the fuel is low
+        const level = l.lit ? Math.max(0.25, fuel / T.fuel_max) * blink : (l.deposited / need) * 0.6;
         o.lampMat.color.setHex(l.lit ? PAL.lampLit : PAL.lampOff);
-        o.lampMat.emissiveIntensity = level * 2.4 * (l.lit ? 1 + Math.sin(t * 3 + i) * 0.1 : 1);
-        o.core.material.opacity = l.lit ? 0.95 : 0; o.core.material.transparent = true;
+        o.lampMat.emissiveIntensity = level * 2.4 * (l.lit && !low ? 1 + Math.sin(t * 3 + i) * 0.1 : 1);
+        o.core.material.opacity = l.lit ? 0.95 * blink : 0; o.core.material.transparent = true;
         o.light.intensity = level * (l.lit ? 110 : 30);
-        o.safe.visible = l.lit;
+        o.safe.visible = l.lit && fuel >= T.low_fuel_threshold; // below 30 fuel the safe zone is gone
+        o.lamp.scale.y = l.lit ? 1 : 0.8; // a dark lantern is squashed by 20% and its paper is torn
+        o.lamp.position.y = l.lit ? 3.4 : 3.26;
+        o.tear.visible = !l.lit;
+        o.bar.visible = o.barBack.visible = l.lit;
+        o.bar.scale.x = Math.max(0.001, fuel / T.fuel_max);
+        o.bar.position.x = -0.75 * (1 - fuel / T.fuel_max);
+        o.bar.material.color.setHex(low ? 0xffffff : PAL.lampLit);
+        o.bar.visible = l.lit && (!low || blink === 1);
       });
 
       sync(motes, game.motes, makeMote);
@@ -236,9 +259,12 @@ export function buildWorld(scene, game) {
         o.g.position.set(s.pos[0], s.pos[1] + Math.sin(t * 3 + s.pos[0]) * 0.12, s.pos[2]);
         o.bodyMat.color.setHex(stunned ? PAL.shadeStun : PAL.shade);
         o.rimMat.opacity = stunned ? 0.2 : 0.55;
+        o.rimMat.color.setHex(rimColor());
+        if (s.state === 'drain') o.g.scale.y = 0.7 + Math.sin(t * 6) * 0.05; // hunched over the lantern
         o.g.rotation.y = stunned ? t * 6 : Math.atan2(p.pos[0] - s.pos[0], p.pos[2] - s.pos[2]);
         const grow = s.state === 'spawning' ? 1 - s.ticks / R.spawning_ticks : 1;
         o.g.scale.setScalar(Math.max(0.15, grow) * (stunned ? 0.85 : 1 + Math.sin(t * 5 + s.pos[2]) * 0.05));
+        if (s.state === 'drain') o.g.scale.y = 0.7 + Math.sin(t * 6) * 0.05;
       }
       sync(drifters, game.drifters, makeDrifterObj);
       for (const d of game.drifters) {

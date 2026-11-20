@@ -6,6 +6,10 @@ import { makeRng, r3 } from './rng.js';
 import { getMap, groundAt, blockedAt, walkFloor } from './maps.js';
 
 export const TICK_RATE = 60;
+const FUEL_UNIT = TICK_RATE;                       // fuel is kept in integer 1/60 units to avoid float drift
+const FUEL_MAX = T.fuel_max * FUEL_UNIT, FUEL_LOW = T.low_fuel_threshold * FUEL_UNIT;
+const f1 = (u) => Math.round((u / FUEL_UNIT) * 10) / 10;
+const hasZone = (l) => l.lit && l.fuel >= FUEL_LOW; // exactly 30 keeps the safe zone
 const ticks = (s) => Math.round(s * TICK_RATE);
 const dxz = (a, b) => Math.hypot(a[0] - b[0], a[2] - b[2]);
 const dist3 = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
@@ -34,6 +38,7 @@ export function createGame({ seed = 0, night = 1, scenario = {} } = {}) {
       invuln: 0, dashCd: 0, dashT: 0, dashDir: [0, 1], pulseCd: 0, charm: 0, facing: 0,
       launch: null, fallWait: 0, pulseFx: 0,
     },
+    successfulLights: sc.player?.successful_lights ?? 0,
     lanterns: [], motes: [], shades: [], drifters: [], charms: [],
     seq: { M: 0, S: 0, D: 0 },
     randomMotes: sc.random_motes ?? (sc.motes === undefined),
@@ -56,15 +61,19 @@ export function createGame({ seed = 0, night = 1, scenario = {} } = {}) {
   const f0 = groundAt(map, p.pos[0], p.pos[2], p.pos[1]);
   p.grounded = f0 !== null && Math.abs(p.pos[1] - f0) < 1e-9;
 
-  map.lanterns.forEach((pos, i) => g.lanterns.push({ id: `L${i + 1}`, pos: [...pos], lit: false, deposited: 0 }));
+  map.lanterns.forEach((pos, i) => g.lanterns.push({ id: `L${i + 1}`, pos: [...pos], lit: false, deposited: 0, fuel: 0, everLit: false, relit: 0 }));
   for (const u of sc.lanterns ?? []) {
     const l = g.lanterns.find((x) => x.id === u.id);
     if (!l) continue; // unknown id: ignored
     if (u.pos) l.pos = [...u.pos];
     if (u.deposited !== undefined) l.deposited = u.deposited;
-    if (u.lit === true) { l.lit = true; l.deposited = Math.max(l.deposited, T.lantern_cost); }
-    else if (u.lit === false) l.lit = false;
-    else if (l.deposited >= T.lantern_cost) l.lit = true;
+    if (u.relit_count !== undefined) l.relit = u.relit_count;
+    if (u.ever_lit !== undefined) l.everLit = u.ever_lit;
+    const lit = u.lit ?? (u.fuel !== undefined ? u.fuel > 0 : l.deposited >= (l.everLit ? T.relight_cost : T.lantern_cost));
+    if (lit) { // placed by the scenario: free, no event, no points, not a "successful light"
+      l.lit = true; l.fuel = Math.round((u.fuel ?? T.fuel_max) * FUEL_UNIT);
+      l.deposited = Math.max(l.deposited, T.lantern_cost); l.everLit = u.ever_lit ?? true;
+    } else { l.lit = false; l.fuel = 0; }
   }
 
   if (sc.motes) {
@@ -82,6 +91,7 @@ export function createGame({ seed = 0, night = 1, scenario = {} } = {}) {
     const id = s.id ?? `S${++g.seq.S}`;
     g.seq.S = Math.max(g.seq.S, idNum(id));
     const sh = makeShade(g, id, s.pos, s.state ?? 'wander', s.state_ticks_left ?? 0, s.pos[1]);
+    sh.target = s.target_lantern_id ?? null;
     if (sh.state === 'stunned') { sh.pushLeft = 0; if (!sh.ticks) sh.ticks = ticks(T.pulse_stun_s); }
     g.shades.push(sh);
   }
@@ -112,7 +122,7 @@ function makeShade(g, id, pos, state, ticksLeft, y) {
   const h = (y ?? 1) - fl;
   return {
     id, pos: [pos[0], fl + h, pos[2]], floor: fl, h, state, ticks: ticksLeft,
-    pushLeft: 0, pushVec: [0, 0], recoilDir: [1, 0], safePush: 0, wdir: [0, 0], wt: 0,
+    pushLeft: 0, pushVec: [0, 0], recoilDir: [1, 0], safePush: 0, wdir: [0, 0], wt: 0, target: null, drainT: 0,
   };
 }
 
@@ -121,11 +131,12 @@ function makeDrifter(id, pos, state, stolen, ticksLeft) {
 }
 
 function emit(g, name, data) { g.events.push({ tick: g.steps, name, data }); }
-const litLanterns = (g) => g.lanterns.filter((l) => l.lit);
+const zoneLanterns = (g) => g.lanterns.filter(hasZone);
+export const capacity = (g) => Math.min(T.capacity_max, T.carry_capacity + R.capacity_per_light * g.successfulLights);
 
 function enforceSafe(g, s) {
   if (s.safePush > 0) return;
-  for (const l of litLanterns(g)) {
+  for (const l of zoneLanterns(g)) {
     const d = dxz(s.pos, l.pos);
     if (d < T.safe_radius) {
       const [ux, uz] = away(l.pos, s.pos);
@@ -146,6 +157,20 @@ function moveShade(g, s, dx, dz) {
   return false;
 }
 
+const weakLanterns = (g) => g.lanterns.filter((l) => l.lit && l.fuel < FUEL_LOW);
+/** Wandering shades go to the nearest lit lantern with fuel < 30 (ties: smaller id), else the nearest dark one. */
+function pickTarget(g, s) {
+  const nearest = (list) => {
+    let best = null, bd = Infinity;
+    for (const l of list) {
+      const d = dxz(l.pos, s.pos);
+      if (d < bd - 1e-9 || (Math.abs(d - bd) <= 1e-9 && idNum(l.id) < idNum(best.id))) { best = l; bd = d; }
+    }
+    return best;
+  };
+  return nearest(weakLanterns(g)) ?? nearest(g.lanterns.filter((l) => !l.lit));
+}
+
 function dropMotes(g, count, cx, cz, refY, rmin, rmax) {
   for (let i = 0; i < count; i++) {
     let placed = false;
@@ -164,8 +189,8 @@ export const timeLeft = (g) => timeLeftTicks(g) / TICK_RATE;
 
 function finish(g, result, reason) {
   if (result === 'won') {
-    g.score += T.score.per_second_left * Math.floor(Math.max(0, timeLeftTicks(g)) / TICK_RATE)
-      + T.score.per_flame_left * g.player.flames;
+    for (const l of g.lanterns) if (l.lit) g.score += T.score.per_lit_lantern_dawn + Math.floor(l.fuel / FUEL_UNIT);
+    g.score += T.score.per_flame_left * g.player.flames;
   }
   g.state = result;
   emit(g, 'game_over', { result, reason });
@@ -203,6 +228,15 @@ export function stepGame(g, input = {}) {
       if (s.ticks > 0) s.ticks -= 1;
       if (s.ticks <= 0) { s.state = 'wander'; s.ticks = 0; s.pushLeft = 0; }
     }
+  }
+  for (const l of g.lanterns) { // lantern fuel: decay 1/s plus 5/s per draining shade; out at <= 0
+    if (!l.lit) continue;
+    const drainers = g.shades.filter((s) => s.state === 'drain' && s.target === l.id);
+    l.fuel -= T.fuel_decay_per_s + drainers.length * T.drain_per_s;
+    for (const s of drainers) if (++s.drainT % R.drain_event_every === 0) emit(g, 'fuel_drain', { lantern_id: l.id, shade_id: s.id, fuel: f1(Math.max(0, l.fuel)) });
+  }
+  for (const l of g.lanterns) {
+    if (l.lit && l.fuel <= 0) { l.lit = false; l.fuel = 0; l.deposited = 0; emit(g, 'lantern_out', { lantern_id: l.id }); }
   }
   if (g.wind.enabled) {
     if (g.wind.active && sim >= g.wind.endTick) { g.wind.active = false; g.wind.dirDeg = Math.floor(g.rng.next() * 360); }
@@ -286,7 +320,7 @@ export function stepGame(g, input = {}) {
 
   // 4. pick up motes and charms
   if (!away_) {
-    for (let i = 0; i < g.motes.length && p.carried < T.carry_capacity;) {
+    for (let i = 0; i < g.motes.length && p.carried < capacity(g);) {
       const m = g.motes[i];
       if (dxz(m.pos, p.pos) <= T.pickup_radius && Math.abs(p.pos[1] - m.pos[1]) <= R.pickup_dy) {
         g.motes.splice(i, 1); p.carried += 1;
@@ -302,29 +336,48 @@ export function stepGame(g, input = {}) {
   }
 
   // 5. lantern interaction
-  const lit0 = new Set(g.lanterns.filter((l) => l.lit).map((l) => l.id));
+  const zone0 = new Set(g.lanterns.filter(hasZone).map((l) => l.id));
   if (interactE && !away_ && p.carried > 0) {
     let best = null, bd = Infinity;
-    for (const l of g.lanterns) {
+    for (const l of g.lanterns) { // only lanterns that can take something: unlit, or lit but not full
       const d = dxz(l.pos, p.pos);
-      if (!l.lit && d <= T.interact_radius && (d < bd || (d === bd && idNum(l.id) < idNum(best.id)))) { best = l; bd = d; }
+      const takes = !l.lit || l.fuel < FUEL_MAX;
+      if (takes && d <= T.interact_radius && (d < bd || (d === bd && idNum(l.id) < idNum(best.id)))) { best = l; bd = d; }
     }
-    if (best) {
-      const amount = Math.min(p.carried, T.lantern_cost - best.deposited);
-      p.carried -= amount; best.deposited += amount;
-      g.score += amount * T.score.per_mote;
-      emit(g, 'deposit', { lantern_id: best.id, amount, deposited: best.deposited });
-      if (best.deposited >= T.lantern_cost) {
-        best.lit = true; g.score += T.score.per_lantern;
-        emit(g, 'lantern_lit', { lantern_id: best.id });
+    if (best && !best.lit) {
+      const need = best.everLit ? T.relight_cost : T.lantern_cost; // a lantern that was lit before only needs 5
+      const amount = Math.min(p.carried, Math.max(0, need - best.deposited));
+      if (amount > 0) {
+        p.carried -= amount; best.deposited += amount;
+        g.score += amount * T.score.per_mote;
+        emit(g, 'deposit', { lantern_id: best.id, amount, deposited: best.deposited });
       }
+      if (best.deposited >= need) {
+        const relight = best.everLit;
+        best.lit = true; best.fuel = FUEL_MAX; best.everLit = true;
+        if (relight) best.relit += 1;
+        g.successfulLights += 1;
+        g.score += relight ? T.score.per_relight : T.score.per_lantern;
+        emit(g, 'lantern_lit', { lantern_id: best.id, relight });
+      }
+    } else if (best) { // refuel a burning lantern: 10 fuel per mote
+      const per = T.fuel_per_mote * FUEL_UNIT;
+      const used = Math.min(p.carried, Math.ceil((FUEL_MAX - best.fuel) / per));
+      best.fuel = Math.min(FUEL_MAX, best.fuel + used * per);
+      p.carried -= used;
+      g.score += used * T.score.per_mote;
+      emit(g, 'refuel', { lantern_id: best.id, amount: used, fuel: f1(best.fuel) });
     }
   }
 
-  // 6. safe zones: shades inside a lantern that was just lit are pushed out over <= 30 ticks
+  // 6. safe zones: shades inside a zone that has just come back (lit, or refuelled to >= 30) are pushed out over <= 30 ticks
   for (const l of g.lanterns) {
-    if (!l.lit || lit0.has(l.id)) continue;
-    for (const s of g.shades) if (dxz(s.pos, l.pos) < T.safe_radius) { s.safePush = R.safe_push_ticks; s.safeFrom = l; }
+    if (!hasZone(l) || zone0.has(l.id)) continue;
+    for (const s of g.shades) {
+      if (dxz(s.pos, l.pos) >= T.safe_radius) continue;
+      s.safePush = R.safe_push_ticks; s.safeFrom = l;
+      if (s.state === 'drain') { s.state = 'wander'; s.drainT = 0; }
+    }
   }
 
   // 7. Tỏa Sáng
@@ -335,9 +388,11 @@ export function stepGame(g, input = {}) {
     for (const s of g.shades) {
       if (dist3(center, s.pos) > T.pulse_radius) continue;
       const [ux, uz] = away(p.pos, s.pos);
+      const wasDraining = s.state === 'drain';
       s.state = 'stunned'; s.ticks = ticks(T.pulse_stun_s); s.pushLeft = R.pulse_push_ticks;
       s.pushVec = [(ux * T.pulse_push_m) / R.pulse_push_ticks, (uz * T.pulse_push_m) / R.pulse_push_ticks];
-      g.score += T.score.per_stun;
+      g.score += wasDraining ? T.score.per_stun_drain : T.score.per_stun; // 15 in total if it was draining
+      s.drainT = 0;
       stunned.push(s.id);
     }
     for (const d of g.drifters) {
@@ -365,17 +420,34 @@ export function stepGame(g, input = {}) {
       if (s.pushLeft > 0) { moveShade(g, s, s.pushVec[0], s.pushVec[1]); s.pushLeft -= 1; }
     } else if (s.state === 'recoil') {
       moveShade(g, s, (s.recoilDir[0] * R.recoil_m) / R.recoil_ticks, (s.recoilDir[1] * R.recoil_m) / R.recoil_ticks);
-    } else if (s.state === 'wander' || s.state === 'chase') {
+    } else if (s.state === 'wander' || s.state === 'chase' || s.state === 'drain') {
       const d = dxz(s.pos, p.pos);
-      if (s.state === 'wander' && d <= R.detect_m) s.state = 'chase';
+      if (s.state === 'drain') { // stands still next to a weak lantern and drinks its fuel (see step 2)
+        let l = g.lanterns.find((x) => x.id === s.target);
+        if (!l) { l = weakLanterns(g).find((x) => dxz(x.pos, s.pos) <= R.drain_range_m); s.target = l?.id ?? null; }
+        if (d <= R.drain_exit_player_m) { s.state = 'chase'; s.target = null; s.drainT = 0; }
+        else if (!l || !l.lit || l.fuel >= FUEL_LOW || dxz(s.pos, l.pos) > R.drain_range_m) { s.state = 'wander'; s.drainT = 0; }
+      } else if (s.state === 'wander' && d <= R.detect_m) s.state = 'chase';
       else if (s.state === 'chase' && d > R.lose_m) s.state = 'wander';
       if (s.state === 'chase') {
         const [ux, uz] = away(s.pos, p.pos);
         const step = Math.min(d, map.shadeSpeed * dt);
         moveShade(g, s, ux * step, uz * step);
-      } else {
-        if (--s.wt <= 0) { const a = g.rng.range(0, 2 * Math.PI); s.wdir = [Math.cos(a), Math.sin(a)]; s.wt = 120; }
-        if (!moveShade(g, s, s.wdir[0] * R.wander_speed * dt, s.wdir[1] * R.wander_speed * dt)) s.wt = 0;
+      } else if (s.state === 'wander') {
+        const tl = pickTarget(g, s); // weak lit lantern first, else nearest dark lantern
+        s.target = tl?.id ?? null;
+        if (tl) {
+          const dl = dxz(s.pos, tl.pos);
+          if (tl.lit && dl <= R.drain_range_m) { s.state = 'drain'; s.drainT = 0; }
+          else if (dl > R.drain_range_m) {
+            const [ux, uz] = away(s.pos, tl.pos);
+            const step = Math.min(dl - R.drain_range_m, map.shadeSpeed * dt);
+            moveShade(g, s, ux * step, uz * step);
+          }
+        } else {
+          if (--s.wt <= 0) { const a = g.rng.range(0, 2 * Math.PI); s.wdir = [Math.cos(a), Math.sin(a)]; s.wt = 120; }
+          if (!moveShade(g, s, s.wdir[0] * R.wander_speed * dt, s.wdir[1] * R.wander_speed * dt)) s.wt = 0;
+        }
       }
     }
     enforceSafe(g, s);
@@ -431,7 +503,7 @@ export function stepGame(g, input = {}) {
     const n = sim === R.shade_first_spawn_tick ? R.shade_first_spawn_count : 1;
     for (let k = 0; k < n && g.shades.length < map.shadeMax; k++) {
       const valid = map.shadePoints.filter((q) => dxz(q, p.pos) >= R.shade_spawn_min_dist
-        && !litLanterns(g).some((l) => dxz(q, l.pos) < T.safe_radius)
+        && !zoneLanterns(g).some((l) => dxz(q, l.pos) < T.safe_radius)
         && !g.shades.some((s) => dxz(s.pos, q) < 1));
       if (!valid.length) continue;
       const q = valid[Math.floor(g.rng.next() * valid.length)];
@@ -447,8 +519,11 @@ export function stepGame(g, input = {}) {
 
   // 11. win / lose
   if (p.flames <= 0) finish(g, 'lost', 'no_flames');
-  else if (g.lanterns.every((l) => l.lit)) finish(g, 'won', 'all_lit');
-  else if (timeLeftTicks(g) <= 0) finish(g, 'lost', 'dawn');
+  else if (timeLeftTicks(g) <= 0) { // dawn: the island must still be lit enough. No early win any more.
+    const need = Math.ceil(T.win_ratio * g.lanterns.length - 1e-9);
+    if (g.lanterns.filter((l) => l.lit).length >= need) finish(g, 'won', 'dawn_survived');
+    else finish(g, 'lost', 'dawn');
+  }
 }
 
 // 12. snapshot
@@ -464,11 +539,11 @@ export function snapshot(g) {
     score: g.score,
     wind: { active: g.wind.enabled && g.wind.active, dir_deg: g.wind.dirDeg },
     player: {
-      pos: p.pos.map(r3), vel: p.vel.map(r3), grounded: p.grounded, flames: p.flames, carried: p.carried,
+      pos: p.pos.map(r3), vel: p.vel.map(r3), grounded: p.grounded, flames: p.flames, carried: p.carried, capacity: capacity(g),
       invuln: s6(p.invuln), dash_cd_s: s6(p.dashCd), pulse_cd_s: s6(p.pulseCd), charm_s: s6(p.charm),
     },
-    lanterns: g.lanterns.map((l) => ({ id: l.id, pos: l.pos.map(r3), lit: l.lit, deposited: l.deposited })),
-    shades: g.shades.map((s) => ({ id: s.id, pos: s.pos.map(r3), state: s.state, state_ticks_left: s.ticks })),
+    lanterns: g.lanterns.map((l) => ({ id: l.id, pos: l.pos.map(r3), lit: l.lit, deposited: l.deposited, fuel: l.lit ? f1(l.fuel) : 0, ever_lit: l.everLit, relit_count: l.relit })),
+    shades: g.shades.map((s) => ({ id: s.id, pos: s.pos.map(r3), state: s.state, state_ticks_left: s.ticks, target_lantern_id: s.target })),
     motes_active: g.motes.length,
     motes: g.motes.map((m) => ({ id: m.id, pos: m.pos.map(r3), kind: m.kind, ttl_s: m.ttl === null ? null : s6(m.ttl) })),
     drifters: g.drifters.map((d) => ({ id: d.id, pos: d.pos.map(r3), state: d.state, stolen: d.stolen })),

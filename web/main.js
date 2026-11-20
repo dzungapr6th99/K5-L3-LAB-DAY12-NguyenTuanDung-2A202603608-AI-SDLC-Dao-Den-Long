@@ -1,20 +1,26 @@
 // Web client: menu -> night intro -> play -> result -> next night -> dawn. Renders the SAME deterministic
 // sim (src/sim.js) that the headless mode runs.
 import * as THREE from 'three';
-import { createGame, stepGame, timeLeft, TICK_RATE } from '/src/sim.js';
+import { createGame, stepGame, timeLeft, capacity, TICK_RATE } from '/src/sim.js';
 import { TUNING as T } from '/src/tuning.js';
 import { getMap } from '/src/maps.js';
-import { buildWorld } from './world.js';
+import { buildWorld, style } from './world.js';
 import { initAudio, setVolume, startMusic, stopMusic, sfx } from './audio.js';
 
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
 
 // ---------- settings (persisted) ----------
-const settings = { volume: 0.7, sens: 0.4 };
+const settings = { volume: 0.7, sens: 0.4, colorblind: false };
 try { Object.assign(settings, JSON.parse(localStorage.getItem('ddl-settings') || '{}')); } catch { /* storage blocked */ }
 function saveSettings() { try { localStorage.setItem('ddl-settings', JSON.stringify(settings)); } catch { /* ignore */ } }
 setVolume(settings.volume);
+style.colorblind = !!settings.colorblind;
+function applyPalette() { // Ticket-03: warning colour #FF5A5F -> #FFFFFF with a warning sign
+  style.colorblind = !!settings.colorblind;
+  document.body.classList.toggle('cb', style.colorblind);
+}
+applyPalette();
 
 // ---------- renderer ----------
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -30,9 +36,9 @@ addEventListener('resize', () => {
 
 // ---------- campaign state ----------
 const INTRO = {
-  1: { title: 'Đêm 1 · Đảo Bến', text: 'Ông Đăng gõ tẩu vào mạn thuyền: "Đảo Bến tắt hết rồi, cháu. Gom đom đóm, thắp năm Đèn Lồng Lớn, đừng để Bóng Mực đến gần."' },
+  1: { title: 'Đêm 1 · Đảo Bến', text: 'Ông Đăng gõ tẩu vào mạn thuyền: "Đảo Bến tắt hết rồi, cháu. Thắp đèn rồi còn phải giữ cho nó cháy: dầu hao từng giây, mà Bóng Mực thì chuyên đi hút dầu. Giữ cho ít nhất ba ngọn còn sáng tới bình minh."' },
   2: { title: 'Đêm 2 · Đảo Cau', text: 'Ông Đăng chỉ về phía cầu tre: "Hai hòn đảo, một cây cầu không lan can. Gặp bục đỏ viền vàng thì cứ bước lên, nó sẽ đưa cháu bay sang bên kia. Coi chừng Gió Lạc, nó thích đom đóm."' },
-  3: { title: 'Đêm 3 · Đảo Chuông', text: 'Ông Đăng ngửa cổ nhìn tháp: "Ba tầng đảo, bảy ngọn đèn. Lên bằng dốc, hoặc nhảy bục. Mười đom đóm cho mỗi đèn, và gió sẽ nổi lên mỗi nửa phút."' },
+  3: { title: 'Đêm 3 · Đảo Chuông', text: 'Ông Đăng ngửa cổ nhìn tháp: "Ba tầng đảo, bảy ngọn đèn. Lên bằng dốc, hoặc nhảy bục. Mười đom đóm cho đèn lần đầu, năm cho lần thắp lại. Năm ngọn còn sáng lúc bình minh là đủ. Gió sẽ nổi lên mỗi nửa phút."' },
 };
 const camp = { night: 1, total: 0, nightScore: 0 };
 let game = null, world = null, screen = 'menu', paused = false, pausePulse = false, camYaw = 0;
@@ -52,7 +58,9 @@ function settingsCard(back) {
   show(`<h1>Cài đặt</h1>
     <label>Âm lượng <output id="vo">${Math.round(settings.volume * 100)}</output>%<input id="vol" type="range" min="0" max="100" value="${Math.round(settings.volume * 100)}"></label>
     <label>Độ nhạy chuột <output id="so">${settings.sens.toFixed(2)}</output><input id="sens" type="range" min="10" max="100" value="${Math.round(settings.sens * 100)}"></label>
+    <label style="display:flex;gap:10px;align-items:center"><input id="cb" type="checkbox" ${settings.colorblind ? 'checked' : ''}> Bảng màu dễ phân biệt (Bóng Mực xanh lam, cảnh báo màu trắng ⚠)</label>
     <button id="back">Quay lại</button>`, { back });
+  $('cb').onchange = (e) => { settings.colorblind = e.target.checked; applyPalette(); saveSettings(); };
   $('vol').oninput = (e) => { settings.volume = e.target.value / 100; $('vo').textContent = e.target.value; setVolume(settings.volume); saveSettings(); };
   $('sens').oninput = (e) => { settings.sens = e.target.value / 100; $('so').textContent = settings.sens.toFixed(2); saveSettings(); };
 }
@@ -60,8 +68,8 @@ function settingsCard(back) {
 function menuCard() {
   screen = 'menu'; stopMusic();
   show(`<h1>Đảo Đèn Lồng</h1>
-    <p>Đêm nay sương đen đã nuốt hết ánh sáng của đảo. Mây phải gom đom đóm, thắp lại các Đèn Lồng Lớn và tránh <b>Bóng Mực</b>, qua ba đêm trên ba hòn đảo.</p>
-    <p class="keys"><kbd>WASD</kbd> đi · <kbd>Space</kbd> nhảy · <kbd>Shift</kbd> lướt · <kbd>E</kbd> nạp đèn · <kbd>F</kbd> tỏa sáng · <kbd>Esc</kbd>/<kbd>P</kbd> tạm dừng</p>
+    <p>Đêm nay sương đen đã nuốt hết ánh sáng của đảo. Mây phải gom đom đóm, thắp các Đèn Lồng Lớn và <b>giữ cho đảo sáng tới bình minh</b>: đèn hao dầu mỗi giây, Bóng Mực hút dầu, và cần ít nhất 60% số đèn còn sáng khi trời sáng.</p>
+    <p class="keys"><kbd>WASD</kbd> đi · <kbd>Space</kbd> nhảy · <kbd>Shift</kbd> lướt · <kbd>E</kbd> nạp đèn / châm dầu · <kbd>F</kbd> tỏa sáng · <kbd>Esc</kbd>/<kbd>P</kbd> tạm dừng</p>
     <button id="play">Bắt đầu</button> <button id="set" class="alt">Cài đặt</button>`,
   { play: () => { camp.total = 0; introCard(1); }, set: () => settingsCard(menuCard) });
 }
@@ -93,16 +101,17 @@ function endCard() {
     camp.nightScore = game.score; camp.total += game.score;
     sfx.win();
     if (camp.night < 3) {
-      show(`<h1>Đêm ${camp.night} đã sáng!</h1><p>Điểm đêm: <b class="gold">${game.score}</b> · Tổng: <b class="gold">${camp.total}</b></p>
+      show(`<h1>Bình minh đã tới!</h1><p>Đêm ${camp.night}: đảo vẫn sáng khi trời sáng.</p><p>Điểm đêm: <b class="gold">${game.score}</b> · Tổng: <b class="gold">${camp.total}</b></p>
         <button id="next">Đêm kế tiếp</button>`, { next: () => introCard(camp.night + 1) });
     } else {
       screen = 'dawn';
-      show(`<h1>Bình Minh</h1><p>Cả ba hòn đảo đã sáng đèn. Ông Đăng mỉm cười: "Cháu làm được rồi."</p>
+      show(`<h1>Bình Minh</h1><p>Cả ba hòn đảo còn sáng đèn khi trời sáng. Ông Đăng mỉm cười: "Cháu giữ được đảo rồi."</p>
         <p>Tổng điểm: <b class="gold big">${camp.total}</b></p><button id="menu">Về menu</button>`, { menu: menuCard });
     }
   } else {
     sfx.lose();
-    const why = game.player.flames <= 0 ? 'Mây hết Ngọn Lửa.' : 'Trời sáng, đèn vẫn chưa thắp đủ.';
+    const need = Math.ceil(T.win_ratio * game.lanterns.length - 1e-9);
+    const why = game.player.flames <= 0 ? 'Mây hết Ngọn Lửa.' : `Trời sáng mà chỉ còn ${game.lanterns.filter((l) => l.lit).length}/${game.lanterns.length} đèn sáng (cần ít nhất ${need}).`;
     show(`<h1>Đêm vẫn còn dài…</h1><p>${why}</p><p>Điểm đêm này: <b class="gold">${game.score}</b></p>
       <button id="again">Chơi lại Đêm ${camp.night}</button> <button id="menu" class="alt">Về menu</button>`,
     { again: () => introCard(camp.night), menu: menuCard });
@@ -160,7 +169,7 @@ function readInput(dt) {
 let toastTimer = 0;
 function toast(msg, danger = false) {
   const t = $('toast');
-  t.textContent = msg; t.style.opacity = 1; t.style.color = danger ? '#ff5a5f' : '';
+  t.textContent = (danger && style.colorblind ? '⚠ ' : '') + msg; t.style.opacity = 1; t.style.color = danger ? (style.colorblind ? '#ffffff' : '#ff5a5f') : '';
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { t.style.opacity = 0; }, 1700);
 }
@@ -169,8 +178,11 @@ function handleEvents() {
     const d = e.data;
     switch (e.name) {
       case 'mote_picked': sfx.pick(); break;
-      case 'deposit': sfx.deposit(); toast(`Nạp ${d.amount} ánh sáng vào ${d.lantern_id} (${d.deposited}/${T.lantern_cost})`); break;
-      case 'lantern_lit': sfx.light(); toast(`Đèn ${d.lantern_id} đã sáng!`); break;
+      case 'deposit': sfx.deposit(); toast(`Nạp ${d.amount} ánh sáng vào ${d.lantern_id} (${d.deposited}/${(() => { const l = game.lanterns.find((x) => x.id === d.lantern_id); return l.lit ? d.deposited : (l.everLit ? T.relight_cost : T.lantern_cost); })()})`); break;
+      case 'lantern_lit': sfx.light(); toast(d.relight ? `Đã thắp lại đèn ${d.lantern_id}!` : `Đèn ${d.lantern_id} đã sáng!`); break;
+      case 'refuel': sfx.deposit(); toast(`Châm ${d.amount} đom đóm vào ${d.lantern_id}: dầu ${d.fuel}`); break;
+      case 'lantern_out': sfx.lose(); toast(`Đèn ${d.lantern_id} đã tắt!`, true); break;
+      case 'fuel_drain': toast(`Bóng Mực đang hút dầu đèn ${d.lantern_id} (còn ${d.fuel})`, true); break;
       case 'pulse': sfx.pulse(); if (d.stunned_ids.length) toast(`Xua ${d.stunned_ids.length} Bóng Mực!`); break;
       case 'dash': sfx.dash(); break;
       case 'shade_spawned': sfx.spawn(); toast('Một Bóng Mực trồi lên từ sương…', true); break;
@@ -191,8 +203,9 @@ function handleEvents() {
 
 // ---------- HUD ----------
 const flamesEl = $('flames'), cells = $('cells');
-cells.innerHTML = Array.from({ length: T.carry_capacity }, () => '<i></i>').join('');
-const cellEls = [...cells.children];
+let cellEls = [], cellCap = 0;
+function buildCells(n) { cells.innerHTML = Array.from({ length: n }, () => '<i></i>').join(''); cellEls = [...cells.children]; cellCap = n; }
+buildCells(T.carry_capacity);
 const arrow = $('arrow');
 const v3 = new THREE.Vector3();
 
@@ -200,12 +213,17 @@ function updateHud() {
   const p = game.player, tl = Math.max(0, Math.ceil(timeLeft(game)));
   flamesEl.innerHTML = Array.from({ length: T.flames }, (_, i) => `<span class="${i < p.flames ? '' : 'off'}">♨</span>`).join('');
   const clock = $('clock');
-  clock.textContent = `${Math.floor(tl / 60)}:${String(tl % 60).padStart(2, '0')}`;
+  const warnIcon = style.colorblind ? '⚠ ' : '';
+  clock.textContent = `${tl <= 30 ? warnIcon : ''}${Math.floor(tl / 60)}:${String(tl % 60).padStart(2, '0')}`;
   clock.className = tl <= 30 ? 'low' : '';
-  $('lit').textContent = `${game.lanterns.filter((l) => l.lit).length}/${game.lanterns.length}`;
+  const need = Math.ceil(T.win_ratio * game.lanterns.length - 1e-9);
+  $('lit').textContent = `${game.lanterns.filter((l) => l.lit).length}/${game.lanterns.length} (cần ${need})`;
   $('score').textContent = game.state === 'won' ? camp.total : camp.total + game.score; // total already includes a won night
   $('nightname').textContent = INTRO[game.night].title;
+  const cap = capacity(game);
+  if (cap !== cellCap) buildCells(cap); // capacity grows by 2 with every successful light (max 20)
   cellEls.forEach((c, i) => c.classList.toggle('on', i < p.carried));
+  $('carry').textContent = `${p.carried}/${cap}`;
   const dashFrac = p.charm > 0 ? 0 : p.dashCd / (T.dash_cooldown_s * TICK_RATE);
   const pulseFrac = p.pulseCd / (T.pulse_cooldown_s * TICK_RATE);
   $('dash').style.setProperty('--cd', `${dashFrac * 360}deg`);
@@ -217,18 +235,21 @@ function updateHud() {
   $('windwarn').textContent = game.wind.active ? 'Gió mạnh!' : 'Gió sắp nổi…';
 
   // prompt near an unlit lantern; arrow to the nearest unlit lantern
-  let near = null, nd = Infinity;
+  let near = null, nd = Infinity, target = null, td = Infinity;
   for (const l of game.lanterns) {
-    if (l.lit) continue;
     const d = Math.hypot(l.pos[0] - p.pos[0], l.pos[2] - p.pos[2]);
-    if (d < nd) { nd = d; near = l; }
+    if ((!l.lit || l.fuel < T.fuel_max * TICK_RATE) && d < nd) { nd = d; near = l; } // can take motes
+    if ((!l.lit || l.fuel < T.low_fuel_threshold * TICK_RATE) && d < td) { td = d; target = l; } // dark or nearly out: needs help
   }
   const pr = $('prompt');
-  if (near && nd <= T.interact_radius) { pr.textContent = `E — Nạp ánh sáng (${near.deposited}/${T.lantern_cost})`; pr.style.opacity = 1; } else pr.style.opacity = 0;
+  if (near && nd <= T.interact_radius) {
+    pr.textContent = near.lit ? `E — Châm dầu (${(near.fuel / TICK_RATE).toFixed(0)}/${T.fuel_max})` : `E — Nạp ánh sáng (${near.deposited}/${near.everLit ? T.relight_cost : T.lantern_cost})`;
+    pr.style.opacity = 1;
+  } else pr.style.opacity = 0;
 
   arrow.style.opacity = 0;
-  if (near) {
-    v3.set(near.pos[0], near.pos[1] + 3.4, near.pos[2]).project(camera);
+  if (target) {
+    v3.set(target.pos[0], target.pos[1] + 3.4, target.pos[2]).project(camera);
     const behind = v3.z > 1, off = behind || Math.abs(v3.x) > 0.92 || Math.abs(v3.y) > 0.88;
     if (off) {
       let x = behind ? -v3.x : v3.x, y = behind ? -v3.y : v3.y;

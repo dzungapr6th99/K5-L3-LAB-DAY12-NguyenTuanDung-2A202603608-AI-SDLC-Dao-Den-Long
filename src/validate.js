@@ -38,7 +38,7 @@ export function validateScenario(doc) {
     const p = doc.player;
     if (!isObj(p)) fail('scenario.player must be an object');
     if (p.pos !== undefined) vec(p.pos, 3, 'scenario.player.pos');
-    for (const k of ['carried', 'flames', 'invuln_ticks', 'dash_cd_ticks', 'pulse_cd_ticks', 'charm_ticks']) {
+    for (const k of ['carried', 'flames', 'invuln_ticks', 'dash_cd_ticks', 'pulse_cd_ticks', 'charm_ticks', 'successful_lights']) {
       if (p[k] !== undefined && (!Number.isInteger(p[k]) || p[k] < 0)) fail(`scenario.player.${k} must be a non-negative integer`);
     }
   }
@@ -58,7 +58,8 @@ export function validateScenario(doc) {
       if (!isObj(s)) fail(`scenario.shades[${i}] must be an object`);
       vec(s.pos, 3, `scenario.shades[${i}].pos`);
       if (s.id !== undefined && typeof s.id !== 'string') fail(`scenario.shades[${i}].id must be a string`);
-      if (s.state !== undefined && !['spawning', 'wander', 'chase', 'recoil', 'stunned'].includes(s.state)) fail(`scenario.shades[${i}].state is not a valid shade state`);
+      if (s.target_lantern_id !== undefined && s.target_lantern_id !== null && typeof s.target_lantern_id !== 'string') fail(`scenario.shades[${i}].target_lantern_id must be a string`);
+      if (s.state !== undefined && !['spawning', 'wander', 'chase', 'recoil', 'stunned', 'drain'].includes(s.state)) fail(`scenario.shades[${i}].state is not a valid shade state`);
       if (s.state_ticks_left !== undefined && (!Number.isInteger(s.state_ticks_left) || s.state_ticks_left < 0)) fail(`scenario.shades[${i}].state_ticks_left must be a non-negative integer`);
     });
   }
@@ -69,6 +70,9 @@ export function validateScenario(doc) {
       if (l.pos !== undefined) vec(l.pos, 3, `scenario.lanterns[${i}].pos`);
       if (l.deposited !== undefined && (!isNum(l.deposited) || l.deposited < 0)) fail(`scenario.lanterns[${i}].deposited must be >= 0`);
       if (l.lit !== undefined && typeof l.lit !== 'boolean') fail(`scenario.lanterns[${i}].lit must be a boolean`);
+      if (l.ever_lit !== undefined && typeof l.ever_lit !== 'boolean') fail(`scenario.lanterns[${i}].ever_lit must be a boolean`);
+      if (l.fuel !== undefined && (!isNum(l.fuel) || l.fuel < 0 || l.fuel > 100)) fail(`scenario.lanterns[${i}].fuel must be a number in [0, 100]`);
+      if (l.relit_count !== undefined && (!Number.isInteger(l.relit_count) || l.relit_count < 0)) fail(`scenario.lanterns[${i}].relit_count must be a non-negative integer`);
     });
   }
   if (doc.drifters !== undefined) {

@@ -42,3 +42,30 @@ Phase 1 tôi tự chọn số liệu (Mây 6 m/s, 3 ngọn lửa, đèn cần 8 
 - Tốt: viết test trước cho từng luật của ticket giúp bắt được lỗi hồi quy sớm; bằng chứng sinh tự động và so byte giữa hai lần chạy; kiểm tra bằng Chrome thật tìm ra hai lỗi hiển thị mà test headless không thấy.
 - Chưa tốt: cân bằng và độ khó của 3 Đêm chưa được chơi thử; âm thanh chưa nghe; nhiều giả định chưa được đối chiếu với test ẩn.
 - Phase sau: giữ cấu trúc hiện tại, thêm test trước khi thêm tính năng; chơi thử bằng tay sớm hơn.
+
+## Phase 3 (Ticket-03 "Đèn cạn dầu", Contract v1.2)
+
+### Quy trình
+1. **Lấy yêu cầu.** Bạn tải trang vào `references/Phase3/`; tôi trích văn bản Ticket-03 từ `a_002_*.htm` (tab Phase 3 "Đèn cạn dầu").
+2. **Đây là change request thay luật cốt lõi**, nên làm khác Phase 2: đọc kỹ các mục `[THAY THẾ]` và lập mô hình trạng thái đèn mới trước khi sửa mã. **Thực tế ADR và CHANGELOG tôi viết sau khi mã và test đã đạt**, không phải trước ([ADR-0001](ADR-0001-lantern-fuel-and-dawn-win.md)). Tài liệu vẫn đúng với mã, nhưng nó chưa dẫn dắt việc sửa như nên làm.
+3. **Kế hoạch kiểm chứng trước.** Với từng mục của ticket viết test headless trước khi coi là xong; mỗi biên số (đúng 30, đúng 100, ceil(0,6 × n), tick bình minh) có một test riêng.
+4. **Test cũ.** Chạy bộ test cũ ngay sau khi sửa sim để thấy chính xác cái gì bị luật mới làm sai (6 test), sửa hoặc xóa từng cái có ghi lý do trong [CHANGELOG](CHANGELOG.md). Không dùng `skip`.
+5. **Web, bằng chứng, tài liệu.** Cập nhật HUD, thanh dầu, mù màu; chạy lại Chrome thật; sinh lại bằng chứng.
+
+### AI sai ở đâu (Phase 3) và cách xử lý
+1. **Lỗi thật trong mã sim, test bắt được**: điểm +15 khi Tỏa Sáng trúng bóng đang hút bị tính +5 vì tôi đổi trạng thái bóng sang `stunned` trước khi kiểm tra. Sửa bằng cách ghi nhớ trạng thái trước.
+2. **Test viết sai kỳ vọng**: quên rằng đèn hao 1 tick trước khi bấm tương tác (7 đom đóm thay vì 6); đặt bóng `drain` trên đèn fuel 50 (ticket thả nó về `wander` ngay); đèn fuel 0,05 chỉ sống 1 tick khi có bóng hút. Sửa test, giữ luật.
+3. **Lỗi giao diện chỉ thấy khi chạy trình duyệt thật**: tôi xóa nhầm một dòng khai báo biến khi vá `world.js`; `node --check` không bắt được, nhưng `browser-check.mjs` bắt được ngay (ReferenceError mỗi khung hình).
+4. **Mũi tên chỉ đèn** ban đầu trỏ tới mọi đèn đang sáng (vì đèn nào cũng nhận dầu); đã tách thành "đèn tối hoặc sắp hết dầu".
+5. **Heredoc dài trong shell hỏng** thêm một lần dù đã ghi trong AGENTS.md; lần này ghi script vá vào file bằng công cụ Write rồi chạy.
+
+### Đo đạc
+- Test: 51/51 đạt (17 test core của Phase 1, 15 test Phase 2, 19 test Phase 3; một test thắng sớm bị xóa theo ticket).
+- Bằng chứng: 28/28 kịch bản đạt và giống hệt giữa hai lần chạy; một Đêm đầy đủ headless khoảng 0,4 giây.
+- Chrome thật: 3 Đêm, tạm dừng, dầu hao trong trang, mù màu được lưu, màn bình minh đều đạt; 60 FPS.
+- Token/chi phí AI: không đo được.
+
+### Retro
+- Tốt: chạy bộ test cũ ngay sau khi sửa sim cho thấy đúng 6 test bị ảnh hưởng; số nguyên 1/60 cho dầu tránh sai số ở các biên.
+- Chưa tốt: ADR và CHANGELOG viết muộn (nên viết trước khi sửa mã, đã ghi vào AGENTS.md); vẫn chưa chơi thử bằng tay nên không biết hút 5/s và ngưỡng 60% có hợp lý ở Đêm 3; một số giả định về `wander` tới đèn tắt chưa được đối chiếu với đề.
+- Phase 4: chơi thử sớm, đo thật hiệu năng và độ khó, chuẩn bị video và Release.

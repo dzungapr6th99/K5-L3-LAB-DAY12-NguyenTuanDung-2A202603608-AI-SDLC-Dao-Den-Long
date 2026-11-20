@@ -13,14 +13,14 @@ test('exit 0, tick-0 snapshot, end line, exactly N steps, v1.1 snapshot fields',
   assert.equal(x.r.status, 0);
   const s0 = x.snaps[0];
   assert.equal(s0.tick, 0); assert.equal(s0.sim_tick, 0); assert.equal(s0.night, 1);
-  assert.equal(s0.time_left_s, 300);
+  assert.equal(s0.time_left_s, 240); // Ticket-03: Night 1 is 240 s
   assert.deepEqual(s0.player.pos, [0, 0, 0]);
   assert.deepEqual(Object.keys(s0.wind), ['active', 'dir_deg']);
   for (const k of ['pos', 'vel', 'grounded', 'invuln', 'dash_cd_s', 'pulse_cd_s', 'charm_s', 'flames', 'carried']) assert.ok(k in s0.player, k);
   for (const k of ['motes', 'drifters', 'charms', 'lanterns', 'shades', 'motes_active']) assert.ok(Array.isArray(s0[k]) || typeof s0[k] === 'number', k);
   assert.equal(x.end.type, 'end'); assert.equal(x.end.ticks, 100); assert.equal(x.end.state, 'playing');
   assert.equal(x.snaps.length, 11);
-  assert.equal(last(x.snaps).time_left_s, Math.round((300 - 100 / 60) * 1000) / 1000);
+  assert.equal(last(x.snaps).time_left_s, Math.round((240 - 100 / 60) * 1000) / 1000);
   assert.equal(x.ev('night_start')[0].tick, 1);
 });
 
@@ -73,17 +73,17 @@ test('mote pickup: radius 1.0 XZ, height diff <= 1.5, capacity 10, no score on p
   assert.ok(many.ev('mote_picked').every((e) => e.tick === 1));
 });
 
-test('deposit: radius 2.0, partial deposits are remembered, +10 per mote, +100 per lantern', () => {
+test('deposit: radius 2.0, partial deposits are remembered, +5 per mote (Ticket-03), +100 per first light', () => {
   const base = { player: { pos: [0, 0, 24], carried: 4 } };
   let x = run({ scenario: sc(base), frames: pressFrames('interact', [0]), ticks: 3 });
   assert.deepEqual(x.ev('deposit')[0].data, { lantern_id: 'L1', amount: 4, deposited: 4 });
   assert.equal(x.ev('lantern_lit').length, 0);
-  assert.equal(last(x.snaps).score, 40);
+  assert.equal(last(x.snaps).score, 20); // 4 motes * 5 (was * 10 before Ticket-03)
   assert.equal(last(x.snaps).lanterns[0].deposited, 4);
   x = run({ scenario: sc({ player: { pos: [0, 0, 24], carried: 5 }, lanterns: [{ id: 'L1', deposited: 7 }] }), frames: pressFrames('interact', [0]), ticks: 3 });
   assert.deepEqual(x.ev('deposit')[0].data, { lantern_id: 'L1', amount: 3, deposited: 10 });
   assert.equal(x.ev('lantern_lit').length, 1);
-  assert.equal(last(x.snaps).score, 30 + 100);
+  assert.equal(last(x.snaps).score, 15 + 100);
   assert.equal(last(x.snaps).player.carried, 2);
   // radius boundary
   const at = (z) => run({ scenario: sc({ player: { pos: [0, 0, 0], carried: 1 }, lanterns: [{ id: 'L1', pos: [0, 0, z] }] }), frames: pressFrames('interact', [0]), ticks: 2 }).ev('deposit').length;
@@ -100,21 +100,8 @@ test('deposit: radius 2.0, partial deposits are remembered, +10 per mote, +100 p
   assert.equal(x.ev('deposit').length, 1);
 });
 
-test('win: all lit, bonus floor(seconds)*2 + 50*flames; win on the exact timeout tick; setup is silent', () => {
-  const lit = ['L2', 'L3', 'L4', 'L5'].map((id) => ({ id, lit: true }));
-  const s = { player: { pos: [0, 0, 24], carried: 10, flames: 2 }, lanterns: [{ id: 'L1', deposited: 0 }, ...lit], time_left_s: 100 };
-  const x = run({ scenario: sc(s), frames: pressFrames('interact', [0]), ticks: 10 });
-  assert.deepEqual(x.events.map((e) => e.name), ['night_start', 'deposit', 'lantern_lit', 'game_over']);
-  assert.deepEqual(x.ev('game_over')[0].data, { result: 'won', reason: 'all_lit' });
-  assert.equal(x.end.state, 'won'); assert.equal(x.end.ticks, 1);
-  assert.equal(x.end.score, 100 + 100 + 2 * 99 + 50 * 2);
-  const tie = run({ scenario: sc({ ...s, player: { pos: [0, 0, 24], carried: 1, flames: 3 }, lanterns: [{ id: 'L1', deposited: 9 }, ...lit], time_left_s: 1 / 60 }), frames: pressFrames('interact', [0]), ticks: 5 });
-  assert.equal(tie.end.state, 'won'); // lit on the very tick the clock hits 0
-  assert.equal(tie.end.score, 10 + 100 + 0 + 150);
-  const pre = run({ scenario: sc({ lanterns: [{ id: 'L1', lit: true }] }), ticks: 30 });
-  assert.equal(pre.snaps[0].score, 0);
-  assert.deepEqual(pre.events.map((e) => e.name), ['night_start']);
-});
+// REMOVED in Phase 3 (Ticket-03 section 3): 'win as soon as every lantern is lit' and the time bonus no longer exist.
+// Replaced by the dawn-survival tests in test/phase3.test.js. See docs/CHANGELOG.md.
 
 test('lose: dawn at time 0; no_flames always wins over a same-tick victory', () => {
   const d = run({ scenario: sc({ time_left_s: 1 }), ticks: 600 });
