@@ -69,3 +69,30 @@ Phase 1 tôi tự chọn số liệu (Mây 6 m/s, 3 ngọn lửa, đèn cần 8 
 - Tốt: chạy bộ test cũ ngay sau khi sửa sim cho thấy đúng 6 test bị ảnh hưởng; số nguyên 1/60 cho dầu tránh sai số ở các biên.
 - Chưa tốt: ADR và CHANGELOG viết muộn (nên viết trước khi sửa mã, đã ghi vào AGENTS.md); vẫn chưa chơi thử bằng tay nên không biết hút 5/s và ngưỡng 60% có hợp lý ở Đêm 3; một số giả định về `wander` tới đèn tắt chưa được đối chiếu với đề.
 - Phase 4: chơi thử sớm, đo thật hiệu năng và độ khó, chuẩn bị video và Release.
+
+## Phase 4 (Ticket-04 "Bình minh", Contract v1.3, v1.0.0)
+
+### Quy trình
+1. **Lấy yêu cầu**: bạn tải trang vào `references/Phase4/`; tôi trích văn bản Ticket-04 từ `a_002_*.htm`.
+2. **Chia việc theo mức độ kiểm chứng được**: (a) bảng xếp hạng + export + test, (b) benchmark + soak + test, (c) giao diện (đổi phím, chỉ báo, cỡ chữ, bảng xếp hạng) + kiểm tra Chrome thật, (d) đóng gói, tài liệu, bằng chứng. Mỗi phần có lệnh chạy lại.
+3. **Commit theo mốc**: lõi (bảng xếp hạng, bench, soak, contract) trước, rồi giao diện, rồi tài liệu.
+
+### AI sai ở đâu (Phase 4) và cách xử lý
+1. **Hiệu năng thật khác hình dung**. Lần đo benchmark đầu: `p1_low_fps` 27, rồi 5 sau khi dùng InstancedMesh (avg tăng nhưng có khung hình khựng 200 ms mỗi giây). Giả thuyết thử lần lượt: khử răng cưa (không phải), lấy mẫu bộ nhớ của script (không phải), polling của script (không phải), **HUD** (đúng: tắt HUD thì p1 low 99). Nguyên nhân là `backdrop-filter: blur` và ghi `innerHTML` mỗi khung hình. Sửa cả hai, p1 low lên 49.
+2. **Soak "thất bại" vì cách đo, không phải rò rỉ**: RSS lúc khởi động (30 MB) thấp hơn lúc ổn định (40 MB) nên vượt ×1,2. Đo heapUsed qua 30 Đêm cho thấy ổn định 4,3 MB. Sửa bằng cách khởi động nóng và thu gom rác trước khi đọc, và ghi rõ trong README.
+3. **Đo bộ nhớ trả về null**: `spawnSync('powershell')` không có trong PATH của Node ở Git Bash. Dùng đường dẫn đầy đủ. Một lần thử khác làm nhiễu số đo vì mỗi mẫu bộ nhớ sinh một tiến trình; chuyển việc lấy mẫu ra ngoài khoảng đo.
+4. **Lệnh `sed` làm hỏng tài liệu**: `s/\`/`/g` bị GNU sed hiểu `\`` là "đầu buffer", chèn dấu backtick vào đầu mọi dòng của một file. Phát hiện khi đọc byte của file; sửa bằng Python và không dùng sed cho nội dung có backtick nữa.
+5. **Heredoc dài hỏng** và **lỗi thoát ký tự trong script vá** (hai lần): chuyển sang ghi script vá bằng công cụ Write.
+6. **Vá nhầm làm mất file dùng chung**: chạy `npm run evidence` khi script chưa được vá xong đã ghi đè bằng chứng Phase 3 trong working tree. Phát hiện nhờ `git status`, khôi phục bằng `git checkout`.
+
+### Đo đạc
+- Test: 68/68 đạt (51 của Phase 1 đến 3, thêm 6 bảng xếp hạng, 5 benchmark và soak, 6 đổi phím).
+- Bằng chứng: 37 dòng đều ĐẠT (28 kịch bản headless × 2 lần chạy giống hệt, 3 đo hiệu năng, benchmark, soak, test).
+- Chrome thật: 29 kiểm tra đạt (3 Đêm, tạm dừng, dầu hao, cỡ chữ, đổi phím, giảm chuyển động, chỉ báo, bình minh, bảng xếp hạng ghi ra đĩa). Thư mục web tĩnh cũng đạt các kiểm tra chức năng.
+- Benchmark: avg 192 FPS, p1 low 49 FPS, load 0,8 s (ngưỡng 60 / 30 / 10 s). Soak: 10 Đêm, 0 crash, ×1,09 bộ nhớ.
+- Token/chi phí AI: không đo được.
+
+### Chưa làm được
+- **Video demo** và **GitHub Release**: không có ffmpeg, không có `gh`. Tài nguyên phát hành đã sẵn sàng; việc còn lại cần bạn.
+- **Docker image**: viết Dockerfile nhưng chưa build (Docker Desktop không chạy).
+- Benchmark trên macOS, Linux; chơi tay hết một Đêm; nghe âm thanh.

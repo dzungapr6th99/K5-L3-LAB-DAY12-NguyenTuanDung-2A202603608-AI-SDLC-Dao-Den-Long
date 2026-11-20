@@ -1,16 +1,32 @@
 ĐẠT  menu loads
-ĐẠT  night 1: starts, simulates, W moves Mây (9.2 m), fps 60.0
-ĐẠT  night 1: Esc pauses (sim_tick frozen at 271)
+ĐẠT  night 1: starts, simulates, W moves Mây (9.3 m), fps 60.0
+ĐẠT  night 1: Esc pauses (sim_tick frozen at 277)
 ĐẠT  night 1: Esc resumes
-ĐẠT  night 2: starts, simulates, W moves Mây (8.9 m), fps 60.0
-ĐẠT  night 2: Esc pauses (sim_tick frozen at 264)
+ĐẠT  night 2: starts, simulates, W moves Mây (8.8 m), fps 60.0
+ĐẠT  night 2: Esc pauses (sim_tick frozen at 253)
 ĐẠT  night 2: Esc resumes
-ĐẠT  night 3: starts, simulates, W moves Mây (7.0 m), fps 59.1
-ĐẠT  night 3: Esc pauses (sim_tick frozen at 260)
+ĐẠT  night 3: starts, simulates, W moves Mây (7.0 m), fps 60.0
+ĐẠT  night 3: Esc pauses (sim_tick frozen at 254)
 ĐẠT  night 3: Esc resumes
 ĐẠT  lit lantern burns fuel in the page (2400 -> 2309 units, about 1 per tick)
-ĐẠT  colour-blind option applies and is saved
+ĐẠT  HUD text is at least 18 px at 1280x720 (smallest 18 px)
+ĐẠT  menu text is at least 18 px (smallest 18 px)
+ĐẠT  large text option scales the UI (36 px)
+ĐẠT  reduce-motion, colour-blind and large-text options apply and are saved
+ĐẠT  rebind Nhảy to Z (saved)
+ĐẠT  a clashing key is refused and reported
+ĐẠT  a fixed key (camera arrow) is refused
+ĐẠT  bindings and options survive a reload
+ĐẠT  the rebound jump key works in the game
+ĐẠT  "Khôi phục mặc định" restores the default keys
+ĐẠT  a nearly-empty lantern shows a text indicator
+ĐẠT  the last 10 s show a big countdown
 ĐẠT  dawn with 3/5 lanterns lit -> "Bình minh" overlay (no early win)
+ĐẠT  after losing, a name can be entered
+ĐẠT  a too-short name is refused with a message
+ĐẠT  a valid name is saved and the rank is shown
+ĐẠT  the entry is on disk with name, score, nights_won, achieved_at, seed
+ĐẠT  the leaderboard screen from the main menu lists it
 
 Chrome: C:/Program Files/Google/Chrome/Application/chrome.exe
 GPU: real GPU (default ANGLE backend).

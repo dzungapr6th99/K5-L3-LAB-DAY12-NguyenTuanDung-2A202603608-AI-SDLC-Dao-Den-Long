@@ -1,4 +1,4 @@
-// Regenerates docs/evidence/phase3/* (Phase 2 evidence is kept in docs/evidence/phase2/ at tag phase-2): runs the real headless CLI on fixed scenarios (twice, byte-compared),
+// Regenerates docs/evidence/phase4/* (earlier phases keep their evidence in docs/evidence/phase1..3 at their tags): runs the real headless CLI on fixed scenarios (twice, byte-compared),
 // checks each result against the ticket, and writes docs/evidence/phase3/EVIDENCE.md.   `npm run evidence`
 import { spawnSync } from 'node:child_process';
 import { mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { TUNING as T } from '../src/tuning.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const dir = join(root, 'docs/evidence/phase3');
+const dir = join(root, 'docs/evidence/phase4');
 mkdirSync(join(dir, 'scenarios'), { recursive: true });
 const empty = { random_motes: false, random_shades: false, random_drifters: false, wind_enabled: false, motes: [], shades: [], drifters: [], charms: [] };
 const sc = (o = {}) => ({ ...empty, ...o });
@@ -147,10 +147,32 @@ for (const night of [1, 2, 3]) {
   perf.push(`| Đêm ${night} | ${end.ticks} | \`${end.state}\` | ${ms} ms | ${ms <= 30000 ? 'ĐẠT' : 'TRƯỢT'} |`);
 }
 
+const readJson = (f) => { try { return JSON.parse(readFileSync(join(root, f), 'utf8')); } catch { return null; } };
+const bench = readJson('bench.json'), soak = readJson('soak.json');
+const ok = (c) => (c ? 'ĐẠT' : 'TRƯỢT');
+const benchSection = bench ? [
+  '| Chỉ số | Giá trị | Ngưỡng | Đánh giá |', '|---|---|---|---|',
+  `| avg_fps | ${bench.avg_fps} | ≥ 60 | ${ok(bench.avg_fps >= 60)} |`,
+  `| p1_low_fps | ${bench.p1_low_fps} | ≥ 30 | ${ok(bench.p1_low_fps >= 30)} |`,
+  `| load_ms | ${bench.load_ms} | ≤ 10000 | ${ok(bench.load_ms <= 10000)} |`,
+  `| frame_ms_p95 | ${bench.frame_ms_p95} | (không có ngưỡng) | |`,
+  `| frames | ${bench.frames} | | |`,
+  `| peak_mem_mb | ${bench.peak_mem_mb} | (không có ngưỡng) | |`,
+  '', `Máy đo: ${bench.os}. Renderer: ${bench.renderer}. Đây là số đo trên máy làm bài, chỉ để tham khảo; máy chấm của giảng viên có thể khác.`,
+].join('\n') : '(chưa chạy npm run bench)';
+const soakSection = soak ? [
+  '| Chỉ số | Giá trị | Ngưỡng | Đánh giá |', '|---|---|---|---|',
+  `| nights | ${soak.nights} | 10 | ${ok(soak.nights === 10)} |`,
+  `| crashes | ${soak.crashes} | = 0 | ${ok(soak.crashes === 0)} |`,
+  `| mem_start_mb → mem_end_mb | ${soak.mem_start_mb} → ${soak.mem_end_mb} (×${(soak.mem_end_mb / soak.mem_start_mb).toFixed(2)}) | ≤ ×1.2 | ${ok(soak.mem_end_mb <= 1.2 * soak.mem_start_mb)} |`,
+  `| duration_s | ${soak.duration_s} | | |`,
+  '', `Kết quả từng Đêm: ${soak.results.join(', ')}. Đầu vào ngẫu nhiên theo seed gần như không bao giờ thắng, nên kết quả toàn lost là bình thường: soak kiểm tra độ ổn định, không kiểm tra độ khó.`,
+].join('\n') : '(chưa chạy npm run soak)';
+
 let browser = '';
 try { browser = readFileSync(join(root, 'docs/evidence/screens/browser-check.txt'), 'utf8'); } catch { browser = '(chưa chạy scripts/browser-check.mjs)'; }
 
-const md = `# Bằng chứng Phase 3 (Ticket-03 "Đèn cạn dầu", Contract v1.2)
+const md = `# Bằng chứng Phase 4 (Ticket-04 "Bình minh", Contract v1.3, v1.0.0)
 
 Sinh tự động bởi \`npm run evidence\`. Mỗi dòng: chạy CLI headless thật (\`node src/headless.js --seed 42 --night N ...\`) hai lần, so sánh từng byte, rồi kiểm tra kết quả với yêu cầu của ticket.
 Output JSONL, scenario và inputs nằm trong thư mục này. Chạy lại ở tag \`phase-2\` cho cùng kết quả (sha256 giống nhau).
@@ -167,9 +189,17 @@ ${rows.join('\n')}
 |---|---|---|---|---|
 ${perf.join('\n')}
 
+## Benchmark (bench.json, \`npm run bench\`)
+
+${benchSection}
+
+## Soak test (soak.json, \`npm run soak\`)
+
+${soakSection}
+
 ## Test tự động
 
-\`npm test\`: xem \`test-output.txt\` (hồi quy Phase 1 trong \`test/core.test.js\`, Phase 2 trong \`test/phase2.test.js\`, luật mới trong \`test/phase3.test.js\`).
+\`npm test\`: xem \`test-output.txt\` (hồi quy Phase 1 trong \`test/core.test.js\`, Phase 2 trong \`test/phase2.test.js\`, Phase 3 trong \`test/phase3.test.js\`, bảng xếp hạng \`test/leaderboard.test.js\`, đổi phím \`test/keybinds.test.js\`, benchmark và soak \`test/bench.test.js\`).
 
 ## Bản web trong trình duyệt thật
 
@@ -181,7 +211,7 @@ ${browser.trim()}
 
 ## Chưa kiểm chứng
 
-- Chưa có bộ test ẩn của giảng viên để đối chiếu; các chỗ đề mơ hồ nằm trong \`docs/SPEC-PHASE3.md\` (mục Giả định).
+- Chưa có bộ test ẩn của giảng viên để đối chiếu; các chỗ đề mơ hồ nằm trong \`docs/SPEC-PHASE4.md\` (mục Giả định).
 - Chưa đo FPS trên máy khác ngoài máy làm bài; chưa chơi hết một Đêm bằng tay để đánh giá độ khó.
 - Âm thanh được tổng hợp bằng Web Audio, chưa nghe thử trong phiên làm bài này (headless không có loa).
 `;

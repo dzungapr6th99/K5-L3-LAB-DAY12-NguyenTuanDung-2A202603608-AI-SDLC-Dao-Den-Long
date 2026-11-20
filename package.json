@@ -12,7 +12,8 @@
     "bench": "node scripts/bench.mjs --seed 42 --duration 30 --out bench.json",
     "soak": "node --expose-gc scripts/soak.js --seed 7 --nights 10 --out soak.json",
     "contract": "node scripts/make-contract.mjs",
-    "leaderboard": "node server.js --export-leaderboard leaderboard.json"
+    "leaderboard": "node server.js --export-leaderboard leaderboard.json",
+    "pack": "node scripts/pack-release.mjs"
   },
   "dependencies": {
     "three": "0.170.0"

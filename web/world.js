@@ -12,7 +12,7 @@ export const PAL = {
 };
 
 // Ticket-03 section 6: colour-blind palette. Shade rim/eyes #7A3CFF -> #00B3FF.
-export const style = { colorblind: false };
+export const style = { colorblind: false, reduceMotion: false }; // reduceMotion: no 1 Hz blinking
 const rimColor = () => (style.colorblind ? 0x00b3ff : PAL.shadeRim);
 
 const mat = (color, extra = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.9, metalness: 0, ...extra });
@@ -221,7 +221,7 @@ export function buildWorld(scene, game) {
         const o = lanterns[i];
         const need = l.everLit ? T.relight_cost : T.lantern_cost;
         const fuel = l.fuel / TICK, low = l.lit && fuel < T.low_fuel_threshold;
-        const blink = low ? (Math.floor(t * 2) % 2 === 0 ? 1 : 0.2) : 1; // 1 Hz when the fuel is low
+        const blink = low ? (style.reduceMotion ? 0.6 : (Math.floor(t * 2) % 2 === 0 ? 1 : 0.2)) : 1; // 1 Hz when the fuel is low (steady dim light with reduced motion)
         const level = l.lit ? Math.max(0.25, fuel / T.fuel_max) * blink : (l.deposited / need) * 0.6;
         o.lampMat.color.setHex(l.lit ? PAL.lampLit : PAL.lampOff);
         o.lampMat.emissiveIntensity = level * 2.4 * (l.lit && !low ? 1 + Math.sin(t * 3 + i) * 0.1 : 1);
@@ -235,7 +235,7 @@ export function buildWorld(scene, game) {
         o.bar.scale.x = Math.max(0.001, fuel / T.fuel_max);
         o.bar.position.x = -0.75 * (1 - fuel / T.fuel_max);
         o.bar.material.color.setHex(low ? 0xffffff : PAL.lampLit);
-        o.bar.visible = l.lit && (!low || blink === 1);
+        o.bar.visible = l.lit && (!low || style.reduceMotion || blink === 1);
       });
 
       let mi = 0;

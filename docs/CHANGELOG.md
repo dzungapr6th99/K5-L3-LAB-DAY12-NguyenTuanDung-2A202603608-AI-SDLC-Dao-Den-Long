@@ -1,5 +1,24 @@
 # Changelog
 
+## Phase 4: Ticket-04 "Bình minh" (Contract v1.3), phát hành v1.0.0
+
+Không có thay đổi phá vỡ tương thích với luật chơi, số liệu hay đầu ra headless của Phase 1 đến 3. Contract v1.3 chỉ thêm `bench_cmd` và `soak_cmd`, và `run_cmd` đổi thành `node server.js` (để `--export-leaderboard` chạy trực tiếp).
+
+### Thêm mới
+- **Benchmark** (`npm run bench`, `scripts/bench.mjs`, `bench.json`): cảnh chuẩn 200 Bóng Mực + 100 đom đóm, số đo theo định nghĩa của ticket (`src/benchstats.js`).
+- **Soak test** (`npm run soak`, `scripts/soak.js`, `soak.json`): 10 Đêm liên tiếp, đầu vào ngẫu nhiên theo seed.
+- **Bảng xếp hạng cục bộ** (`src/leaderboard.js`, `server.js`): nhập tên sau Bình Minh hoặc khi thua, top 10, ghi ra đĩa, lệnh `--export-leaderboard`, màn hình ở menu chính.
+- **Dễ tiếp cận**: đổi phím có phát hiện trùng và khôi phục mặc định (`src/keybinds.js`); chỉ báo hình ảnh cho Bóng Mực xuất hiện, gió, 10 giây cuối và đèn sắp hết dầu; giảm chuyển động; cỡ chữ tối thiểu 18 px và tùy chọn chữ lớn ×1,25.
+- **Đóng gói**: thư mục web tĩnh (`npm run pack`), `Dockerfile`, `docs/RELEASE-v1.0.0.md`, README đầy đủ, `docs/RETRO.md`.
+- 17 test mới (68 test tổng): 6 bảng xếp hạng, 6 đổi phím, 5 benchmark và soak.
+
+### Thay đổi bên trong
+- Hiệu năng (tìm ra nhờ benchmark): Bóng Mực và đom đóm vẽ bằng `InstancedMesh`; mây gộp một draw call; HUD bỏ `backdrop-filter` và chỉ ghi DOM khi giá trị đổi. Benchmark từ `p1_low_fps` 5 lên 49.
+- `sim.js` có thêm tùy chọn `bench` (chỉ web dùng, CLI headless không bao giờ dùng).
+- `scripts/make-contract.mjs` sinh `game.contract.json` từ `src/tuning.js`.
+- Phím P không còn là phím tạm dừng thứ hai (đổi phím thay thế); phím tạm dừng mặc định là Esc.
+- Gợi ý phím cố định ở góc dưới trái bị bỏ để chữ HUD đạt 18 px.
+
 ## Phase 3: Ticket-03 "Đèn cạn dầu" (Contract v1.2)
 
 ### Thay đổi phá vỡ tương thích (breaking changes)

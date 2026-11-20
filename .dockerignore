@@ -1,0 +1,10 @@
+node_modules
+out
+data
+release
+references
+docs
+test
+.git
+.claude
+*.md

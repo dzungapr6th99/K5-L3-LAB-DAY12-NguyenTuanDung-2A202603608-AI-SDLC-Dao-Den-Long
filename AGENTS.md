@@ -1,17 +1,20 @@
 # AGENTS.md: Đảo Đèn Lồng
 
-Game 3D (web) cho lab AI-SDLC. Test Contract (headless) được chấm tự động, nên đúng contract quan trọng hơn đẹp. Phạm vi hiện tại: Phase 3 (Ticket-03 "Đèn cạn dầu", Contract v1.2). Đặc tả và giả định: `docs/SPEC-PHASE2.md`, `docs/SPEC-PHASE3.md`. Quyết định thiết kế: `docs/ADR-0001-*.md`. Thay đổi phá vỡ: `docs/CHANGELOG.md`.
+Game 3D (web) cho lab AI-SDLC. Test Contract (headless) được chấm tự động, nên đúng contract quan trọng hơn đẹp. Phạm vi hiện tại: v1.0.0 (Phase 4, Ticket-04, Contract v1.3). Đặc tả và giả định: `docs/SPEC-PHASE2.md`, `SPEC-PHASE3.md`, `SPEC-PHASE4.md`. Quyết định thiết kế: `docs/ADR-0001-*.md`. Thay đổi phá vỡ: `docs/CHANGELOG.md`.
 
 ## Lệnh
 - `npm install` · `npm start` (http://localhost:8080) · `npm test` · `npm run evidence` · `node scripts/build-artifact.js` (gộp thành out/artifact.html)
 - Headless: `node src/headless.js --seed N --night 1|2|3 --ticks N --out f.jsonl [--scenario f] [--inputs f]`
-- Kiểm tra bản web bằng Chrome thật: bật `npm start`, rồi `GPU=1 node scripts/browser-check.mjs` (bỏ `GPU=1` để dùng render phần mềm, chậm hơn).
+- Kiểm tra bản web bằng Chrome thật: `GPU=1 node scripts/browser-check.mjs` (tự bật máy chủ riêng với dữ liệu tạm; bỏ `GPU=1` để dùng render phần mềm, chậm hơn).
+- Hiệu năng và độ ổn định: `npm run bench` (Chrome, ghi `bench.json`), `npm run soak` (ghi `soak.json`). Bảng xếp hạng: `node server.js --export-leaderboard out.json`.
+- Đóng gói: `npm run pack` (zip thư mục web tĩnh vào `release/`), `npm run contract` (sinh `game.contract.json` từ `src/tuning.js`).
 
 ## Cấu trúc
 - `src/sim.js`: mô phỏng thuần, tất định, một hàm `stepGame` = một tick theo đúng 11 bước của ticket. KHÔNG dùng DOM, Three.js, `Math.random`, `Date`. Dùng `src/rng.js`.
 - `src/tuning.js`: số chuẩn của ticket (Ticket-03 đã đổi thời gian Đêm và thêm khóa nhiên liệu) (`TUNING` vào contract, `RULES` là hằng còn lại). `game.contract.json` phải khớp `TUNING` (test kiểm tra). Số chuẩn do ticket quy định, không tự đổi.
 - `src/maps.js`: 3 bản đồ, địa hình (`groundAt`, `blockedAt`, `walkFloor`).
 - `src/headless.js`, `src/validate.js`: CLI và kiểm tra file đầu vào (sai định dạng thì exit 2).
+- `src/leaderboard.js` (luật bảng xếp hạng, thuần), `src/keybinds.js` (luật đổi phím, thuần), `src/benchstats.js` (số đo khung hình). `server.js` phục vụ web và ghi bảng xếp hạng ra `data/leaderboard.json`.
 - `web/`: `main.js` (màn hình, input, HUD), `world.js` (Three.js), `audio.js` (Web Audio tổng hợp). Chỉ vẽ và đọc phím, mọi luật chơi nằm trong `sim.js`.
 - `test/core.test.js` (hồi quy Phase 1), `test/phase2.test.js` (Phase 2), `test/phase3.test.js` (nhiên liệu, hút dầu, thắng bình minh). Test chạy CLI thật qua `test/helpers.js`.
 
@@ -26,6 +29,7 @@ Game 3D (web) cho lab AI-SDLC. Test Contract (headless) được chấm tự đ�
 - Không sửa test cho khớp code mà không nói lý do trong commit.
 - Không commit `.env`, khóa API, `node_modules/`, `out/`.
 - Bằng chứng phải sinh từ lần chạy thật (`npm run evidence`, `browser-check.mjs`), không viết tay.
+- HUD: không ghi DOM mỗi khung hình (dùng `setT/setH/setS/setC` có cache) và không dùng `backdrop-filter`; cả hai từng làm trang khựng 200 ms mỗi giây. Mọi chữ giao diện tối thiểu 1rem (18 px).
 - Mã bản Artifact là bản gộp: tên toàn cục không được trùng giữa các file trong `src/` và `web/` (build sẽ lỗi cú pháp nếu trùng).
 
 ## Lỗi đã gặp (đừng lặp lại)
@@ -35,5 +39,10 @@ Game 3D (web) cho lab AI-SDLC. Test Contract (headless) được chấm tự đ�
 - Lab board là artifact của người ngoài tổ chức: ArtifactData không đọc được, phase mới nằm trong CSDL của trang. Cách lấy yêu cầu: người dùng tải trang về thư mục `references/`, đọc file `*_002_*.htm` (Phase 2) bằng script trích văn bản.
 - Sau khi vá file bằng script, `node --check` không bắt được biến chưa khai báo: luôn chạy `scripts/browser-check.mjs` khi đổi `web/`.
 - Khi thay đổi trạng thái của một thực thể, đọc trạng thái cũ TRƯỚC (bug điểm Tỏa Sáng trúng bóng đang `drain`).
+- Đo hiệu năng bằng thí nghiệm từng giả thuyết một (tắt khử răng cưa, tắt HUD, bỏ polling), đừng đoán: thủ phạm là HUD, không phải GPU hay số thực thể.
+- Trên Windows/Git Bash, `spawnSync('powershell')` không tìm thấy; dùng đường dẫn đầy đủ trong `System32\WindowsPowerShell`.
+- KHÔNG dùng `sed` để sửa nội dung có dấu backtick (GNU sed hiểu `\`` là đầu buffer và làm hỏng file); dùng Python hoặc công cụ Edit.
+- Đừng chạy `npm run evidence` khi script chưa vá xong: nó ghi đè thư mục bằng chứng của phase trước (khôi phục bằng `git checkout -- docs/evidence/<phase>`).
+- RSS Node dao động 37–50 MB dù không rò rỉ: đọc bộ nhớ sau hai lần `gc()` và khởi động nóng; kiểm tra rò rỉ bằng `heapUsed`.
 - Test viết sai vị trí đặt thực thể (ví dụ đặt Mây cạnh bục nhảy nên bị bắn lên). Khi một test lạ thất bại, in trạng thái từng tick trước khi sửa mã.
 - Bóng Mực chạm Mây lúc Mây còn ở trong vùng an toàn của đèn vừa thắp không gây sát thương: không thể có "thắng + hết lửa cùng một tick" qua đường chạm, nên kiểm thử ưu tiên `no_flames` bằng cách dùng đồng hồ hết giờ.
