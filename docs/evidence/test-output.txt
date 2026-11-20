@@ -1,0 +1,122 @@
+
+> dao-den-long@0.1.0 test
+> node --test "test/**/*.test.js"
+
+TAP version 13
+# Subtest: exit 0, tick-0 snapshot, end line, exactly N steps
+ok 1 - exit 0, tick-0 snapshot, end line, exactly N steps
+  ---
+  duration_ms: 511.358
+  type: 'test'
+  ...
+# Subtest: deterministic: same seed/scenario/inputs -> identical bytes; seeds differ
+ok 2 - deterministic: same seed/scenario/inputs -> identical bytes; seeds differ
+  ---
+  duration_ms: 1021.3173
+  type: 'test'
+  ...
+# Subtest: movement: speed, cam_yaw rotation, normalisation of long vectors
+ok 3 - movement: speed, cam_yaw rotation, normalisation of long vectors
+  ---
+  duration_ms: 1065.9747
+  type: 'test'
+  ...
+# Subtest: jump is edge triggered and returns to ground
+ok 4 - jump is edge triggered and returns to ground
+  ---
+  duration_ms: 272.6987
+  type: 'test'
+  ...
+# Subtest: mote pickup: event, carried, score, capacity limit
+ok 5 - mote pickup: event, carried, score, capacity limit
+  ---
+  duration_ms: 228.472
+  type: 'test'
+  ...
+# Subtest: pickup radius boundary: <= radius picks, just outside does not
+ok 6 - pickup radius boundary: <= radius picks, just outside does not
+  ---
+  duration_ms: 557.5867
+  type: 'test'
+  ...
+# Subtest: deposit and lighting a lantern, score, then win with bonuses
+ok 7 - deposit and lighting a lantern, score, then win with bonuses
+  ---
+  duration_ms: 227.4715
+  type: 'test'
+  ...
+# Subtest: scenario setup emits no events and awards no points (pre-lit lanterns)
+ok 8 - scenario setup emits no events and awards no points (pre-lit lanterns)
+  ---
+  duration_ms: 233.1643
+  type: 'test'
+  ...
+# Subtest: interact is edge triggered and needs range
+ok 9 - interact is edge triggered and needs range
+  ---
+  duration_ms: 532.6014
+  type: 'test'
+  ...
+# Subtest: pulse: costs light, stuns/pushes shades in radius, cooldown, events
+ok 10 - pulse: costs light, stuns/pushes shades in radius, cooldown, events
+  ---
+  duration_ms: 224.6653
+  type: 'test'
+  ...
+# Subtest: pulse with no light is a no-op; stun wears off
+ok 11 - pulse with no light is a no-op; stun wears off
+  ---
+  duration_ms: 489.1103
+  type: 'test'
+  ...
+# Subtest: shade chases at shade_speed
+ok 12 - shade chases at shade_speed
+  ---
+  duration_ms: 293.2978
+  type: 'test'
+  ...
+# Subtest: hit: flame lost, drop ratio, invulnerability, no hit while stunned
+ok 13 - hit: flame lost, drop ratio, invulnerability, no hit while stunned
+  ---
+  duration_ms: 613.8388
+  type: 'test'
+  ...
+# Subtest: lose by no_flames; lose by dawn
+ok 14 - lose by no_flames; lose by dawn
+  ---
+  duration_ms: 496.0954
+  type: 'test'
+  ...
+# Subtest: safe_radius: shades cannot enter a lit lantern radius
+ok 15 - safe_radius: shades cannot enter a lit lantern radius
+  ---
+  duration_ms: 238.2382
+  type: 'test'
+  ...
+# Subtest: random shades spawn with events, deterministic ids; random_shades:false spawns none
+ok 16 - random shades spawn with events, deterministic ids; random_shades:false spawns none
+  ---
+  duration_ms: 462.5082
+  type: 'test'
+  ...
+# Subtest: malformed inputs/scenario -> exit 2 with stderr; other errors non-zero
+ok 17 - malformed inputs/scenario -> exit 2 with stderr; other errors non-zero
+  ---
+  duration_ms: 1836.9835
+  type: 'test'
+  ...
+# Subtest: game.contract.json mirrors the tuning the game actually uses
+ok 18 - game.contract.json mirrors the tuning the game actually uses
+  ---
+  duration_ms: 2.7925
+  type: 'test'
+  ...
+1..18
+# tests 18
+# suites 0
+# pass 18
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 9679.564

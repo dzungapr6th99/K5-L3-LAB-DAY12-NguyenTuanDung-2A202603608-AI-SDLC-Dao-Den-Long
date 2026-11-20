@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Đảo Đèn Lồng</title>
+<style>
+  :root { --amber:#ffb84a; --ink:#1a1030; --violet:#7a4cff; }
+  html, body { margin:0; height:100%; background:#0b0716; overflow:hidden; font-family: "Segoe UI", system-ui, sans-serif; color:#ffe9c4; }
+  canvas { display:block; }
+  #hud { position:fixed; inset:0; pointer-events:none; }
+  .panel { position:absolute; background:rgba(20,10,40,.55); border:1px solid rgba(255,184,74,.35); border-radius:12px; padding:8px 14px; backdrop-filter: blur(4px); }
+  #tl { top:12px; left:12px; } #tr { top:12px; right:12px; text-align:right; }
+  #bl { bottom:12px; left:12px; font-size:13px; opacity:.85; }
+  #br { bottom:12px; right:12px; min-width:150px; }
+  .big { font-size:22px; font-weight:700; color:var(--amber); }
+  .flames { font-size:24px; letter-spacing:4px; color:#ff9a2e; }
+  .flames .off { color:#4a3a60; }
+  .bar { height:10px; background:#2a1c46; border-radius:6px; overflow:hidden; margin-top:4px; }
+  .bar > i { display:block; height:100%; background:linear-gradient(90deg,#ffd27a,#ff9a2e); width:0; }
+  #toast { position:absolute; top:70px; left:50%; transform:translateX(-50%); padding:6px 14px; border-radius:20px; background:rgba(20,10,40,.7); opacity:0; transition:opacity .3s; }
+  #hit { position:absolute; inset:0; background:radial-gradient(transparent 40%, rgba(90,30,170,.55)); opacity:0; transition:opacity .4s; }
+  #overlay { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(8,4,20,.72); text-align:center; z-index:5; }
+  #overlay .card { max-width:520px; padding:28px 34px; background:rgba(30,16,56,.92); border:1px solid rgba(255,184,74,.5); border-radius:18px; }
+  #overlay h1 { margin:0 0 8px; color:var(--amber); font-size:34px; }
+  #overlay p { line-height:1.5; margin:8px 0; }
+  button { pointer-events:auto; cursor:pointer; font-size:18px; padding:10px 26px; border-radius:24px; border:0; background:var(--amber); color:#2b1600; font-weight:700; margin-top:12px; }
+  button:hover { filter:brightness(1.1); }
+  kbd { background:#3a2a5c; border-radius:4px; padding:1px 6px; }
+</style>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js"}}</script>
+</head>
+<body>
+<div id="hud">
+  <div id="tl" class="panel"><div class="flames" id="flames"></div><div>Đèn đã thắp: <b id="lit">0/5</b></div></div>
+  <div id="tr" class="panel"><div class="big" id="score">0</div><div>Còn lại <b id="time">5:00</b></div></div>
+  <div id="bl" class="panel"><kbd>WASD</kbd> đi · <kbd>Space</kbd> nhảy · <kbd>E</kbd> nạp đèn · <kbd>F</kbd> tỏa sáng · <kbd>←/→</kbd> hoặc kéo chuột: xoay camera · <kbd>R</kbd> chơi lại</div>
+  <div id="br" class="panel">Ánh sáng mang: <b id="carried">0/5</b><div class="bar"><i id="carbar"></i></div><div style="margin-top:6px;font-size:12px">Tỏa sáng: <span id="pcd">sẵn sàng</span></div></div>
+  <div id="toast"></div>
+  <div id="hit"></div>
+</div>
+<div id="overlay"><div class="card" id="card"></div></div>
+<script type="module" src="/web/main.js"></script>
+</body>
+</html>
