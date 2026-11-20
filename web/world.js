@@ -30,13 +30,15 @@ function buildTerrain(scene, night) {
   sea.rotation.x = -Math.PI / 2; sea.position.y = -12;
   scene.add(sea);
   const cloudMat = mat(0x6a7aa8, { transparent: true, opacity: 0.35 });
+  const clouds = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 10, 6), cloudMat, 40);
+  const cm = new THREE.Object3D();
   for (let i = 0; i < 40; i++) {
-    const a = i * 2.399, r = 50 + (i * 17) % 60;
-    const c = new THREE.Mesh(new THREE.SphereGeometry(5 + (i % 4) * 2, 12, 8), cloudMat);
-    c.position.set(Math.sin(a) * r + (night === 2 ? 35 : 0), -7 - (i % 3), Math.cos(a) * r);
-    c.scale.y = 0.4;
-    scene.add(c);
+    const ang = i * 2.399, r = 50 + (i * 17) % 60, size = 5 + (i % 4) * 2;
+    cm.position.set(Math.sin(ang) * r + (night === 2 ? 35 : 0), -7 - (i % 3), Math.cos(ang) * r);
+    cm.scale.set(size, size * 0.4, size); cm.updateMatrix();
+    clouds.setMatrixAt(i, cm.matrix);
   }
+  scene.add(clouds);
   if (night === 1) disc(scene, 0, 0, 40);
   if (night === 2) {
     disc(scene, 0, 0, 28); disc(scene, 70, 0, 28);
@@ -127,21 +129,6 @@ function makePlayer() {
   return { g, lampLight };
 }
 
-function makeShadeObj() {
-  const g = new THREE.Group();
-  const bodyMat = mat(PAL.shade, { emissive: 0x1a0a2a, emissiveIntensity: 0.6 });
-  const body = new THREE.Mesh(new THREE.SphereGeometry(0.8, 18, 14), bodyMat);
-  const rimMat = new THREE.MeshBasicMaterial({ color: rimColor(), side: THREE.BackSide, transparent: true, opacity: 0.55 });
-  const rim = new THREE.Mesh(new THREE.SphereGeometry(0.95, 18, 14), rimMat);
-  g.add(body, rim);
-  for (const x of [-0.28, 0.28]) {
-    const e = new THREE.Mesh(new THREE.SphereGeometry(0.1, 8, 6), basic(style.colorblind ? 0x00b3ff : 0xd9b3ff));
-    e.position.set(x, 0.15, 0.7);
-    g.add(e);
-  }
-  return { g, bodyMat, rimMat };
-}
-
 function makeDrifterObj() {
   const g = new THREE.Group();
   const m = new THREE.MeshBasicMaterial({ color: PAL.drifter, transparent: true, opacity: 0.8, side: THREE.DoubleSide });
@@ -151,14 +138,6 @@ function makeDrifterObj() {
     g.add(r);
   }
   return { g, ribbons: g.children };
-}
-
-function makeMote() {
-  const g = new THREE.Group();
-  const core = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 6), basic(PAL.moteCore));
-  const halo = new THREE.Mesh(new THREE.SphereGeometry(0.4, 8, 6), basic(PAL.moteHalo, 0.35, true));
-  g.add(core, halo);
-  return g;
 }
 
 function makeCharm() {
@@ -196,7 +175,19 @@ export function buildWorld(scene, game) {
   }
   const charmObjs = game.charms.map((c) => { const o = makeCharm(); o.position.set(c.pos[0], c.pos[1] + 1, c.pos[2]); root.add(o); return o; });
 
-  const motes = new Map(), shades = new Map(), drifters = new Map();
+  const drifters = new Map();
+  // Motes and shades are InstancedMesh: the benchmark scene has 200 shades and 100 motes.
+  const dummy = new THREE.Object3D(), tmpM = new THREE.Matrix4(), tmpC = new THREE.Color();
+  const inst = (geo, material, cap) => {
+    const m = new THREE.InstancedMesh(geo, material, cap);
+    m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); m.frustumCulled = false; m.count = 0; root.add(m); return m;
+  };
+  const SH_CAP = 256, MO_CAP = 256;
+  const shBody = inst(new THREE.SphereGeometry(0.8, 12, 8), mat(0xffffff, { emissive: 0x1a0a2a, emissiveIntensity: 0.6 }), SH_CAP);
+  const shRim = inst(new THREE.SphereGeometry(0.95, 12, 8), new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.BackSide, transparent: true, opacity: 0.55, depthWrite: false }), SH_CAP);
+  const shEye = inst(new THREE.SphereGeometry(0.1, 6, 4), basic(0xffffff), SH_CAP * 2);
+  const moCore = inst(new THREE.SphereGeometry(0.16, 6, 4), basic(PAL.moteCore), MO_CAP);
+  const moHalo = inst(new THREE.SphereGeometry(0.4, 6, 4), basic(PAL.moteHalo, 0.35, true), MO_CAP);
   const leaves = Array.from({ length: 40 }, (_, i) => {
     const m = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.2), new THREE.MeshBasicMaterial({ color: PAL.grass, side: THREE.DoubleSide }));
     m.visible = false; m.userData.seed = i; root.add(m); return m;
@@ -247,25 +238,40 @@ export function buildWorld(scene, game) {
         o.bar.visible = l.lit && (!low || blink === 1);
       });
 
-      sync(motes, game.motes, makeMote);
+      let mi = 0;
       for (const m of game.motes) {
-        const o = motes.get(m.id);
-        o.position.set(m.pos[0], m.pos[1] + 0.9 + Math.sin(t * 2 + m.pos[0]) * 0.18, m.pos[2]);
-        o.visible = m.ttl === null || m.ttl > 120 || Math.floor(t * 8) % 2 === 0; // dropped motes blink before they vanish
+        if (mi >= MO_CAP) break;
+        const visible = m.ttl === null || m.ttl > 120 || Math.floor(t * 8) % 2 === 0; // dropped motes blink before they vanish
+        dummy.position.set(m.pos[0], m.pos[1] + 0.9 + Math.sin(t * 2 + m.pos[0]) * 0.18, m.pos[2]);
+        dummy.rotation.set(0, 0, 0); dummy.scale.setScalar(visible ? 1 : 0.0001); dummy.updateMatrix();
+        moCore.setMatrixAt(mi, dummy.matrix); moHalo.setMatrixAt(mi, dummy.matrix); mi++;
       }
-      sync(shades, game.shades, makeShadeObj);
+      moCore.count = moHalo.count = mi;
+      moCore.instanceMatrix.needsUpdate = moHalo.instanceMatrix.needsUpdate = true;
+
+      let si = 0, ei = 0;
+      const eyeHex = style.colorblind ? 0x00b3ff : 0xd9b3ff, rim = rimColor();
       for (const s of game.shades) {
-        const o = shades.get(s.id), stunned = s.state === 'stunned';
-        o.g.position.set(s.pos[0], s.pos[1] + Math.sin(t * 3 + s.pos[0]) * 0.12, s.pos[2]);
-        o.bodyMat.color.setHex(stunned ? PAL.shadeStun : PAL.shade);
-        o.rimMat.opacity = stunned ? 0.2 : 0.55;
-        o.rimMat.color.setHex(rimColor());
-        if (s.state === 'drain') o.g.scale.y = 0.7 + Math.sin(t * 6) * 0.05; // hunched over the lantern
-        o.g.rotation.y = stunned ? t * 6 : Math.atan2(p.pos[0] - s.pos[0], p.pos[2] - s.pos[2]);
+        if (si >= SH_CAP) break;
+        const stunned = s.state === 'stunned';
+        const yaw = stunned ? t * 6 : Math.atan2(p.pos[0] - s.pos[0], p.pos[2] - s.pos[2]);
         const grow = s.state === 'spawning' ? 1 - s.ticks / R.spawning_ticks : 1;
-        o.g.scale.setScalar(Math.max(0.15, grow) * (stunned ? 0.85 : 1 + Math.sin(t * 5 + s.pos[2]) * 0.05));
-        if (s.state === 'drain') o.g.scale.y = 0.7 + Math.sin(t * 6) * 0.05;
+        const k = Math.max(0.15, grow) * (stunned ? 0.85 : 1 + Math.sin(t * 5 + s.pos[2]) * 0.05);
+        const sy = s.state === 'drain' ? 0.7 + Math.sin(t * 6) * 0.05 : k; // hunched over the lantern while draining
+        dummy.position.set(s.pos[0], s.pos[1] + Math.sin(t * 3 + s.pos[0]) * 0.12, s.pos[2]);
+        dummy.rotation.set(0, yaw, 0); dummy.scale.set(k, sy, k); dummy.updateMatrix();
+        shBody.setMatrixAt(si, dummy.matrix); shRim.setMatrixAt(si, dummy.matrix);
+        shBody.setColorAt(si, tmpC.setHex(stunned ? PAL.shadeStun : PAL.shade));
+        tmpC.setHex(rim); if (stunned) tmpC.multiplyScalar(0.35);
+        shRim.setColorAt(si, tmpC);
+        for (const x of [-0.28, 0.28]) {
+          tmpM.makeTranslation(x, 0.15, 0.7).premultiply(dummy.matrix);
+          shEye.setMatrixAt(ei, tmpM); shEye.setColorAt(ei, tmpC.setHex(eyeHex)); ei++;
+        }
+        si++;
       }
+      shBody.count = shRim.count = si; shEye.count = ei;
+      for (const m of [shBody, shRim, shEye]) { m.instanceMatrix.needsUpdate = true; if (m.instanceColor) m.instanceColor.needsUpdate = true; }
       sync(drifters, game.drifters, makeDrifterObj);
       for (const d of game.drifters) {
         const o = drifters.get(d.id);

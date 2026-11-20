@@ -22,7 +22,7 @@ function away(from, to) {
   return d < 1e-9 ? [1, 0] : [dx / d, dz / d];
 }
 
-export function createGame({ seed = 0, night = 1, scenario = {} } = {}) {
+export function createGame({ seed = 0, night = 1, scenario = {}, bench = false } = {}) {
   const map = getMap(night);
   const sc = scenario;
   const rng = makeRng(seed);
@@ -107,7 +107,30 @@ export function createGame({ seed = 0, night = 1, scenario = {} } = {}) {
     g.drifters.push(makeDrifter(id, d.pos, d.state ?? 'idle', d.stolen ?? 0, d.state_ticks_left ?? 0));
   }
   if (g.wind.enabled) g.wind.dirDeg = Math.floor(rng.next() * 360);
+  if (bench) setupBench(g); // Ticket-04 benchmark scene (never used by the headless CLI)
   return g;
+}
+
+/** Standard benchmark scene: Night 1, 200 wandering shades spread over the island, 100 motes, L1-L3 lit with fuel 100. */
+function setupBench(g) {
+  g.bench = true;
+  g.randomMotes = g.randomShades = g.randomDrifters = false;
+  g.wind.enabled = false;
+  g.motes = []; g.shades = []; g.drifters = []; g.charms = [];
+  g.player.pos = [0, 0, 0];
+  g.lanterns.forEach((l, i) => {
+    l.lit = i < 3; l.fuel = i < 3 ? FUEL_MAX : 0; l.everLit = i < 3; l.deposited = i < 3 ? T.lantern_cost : 0;
+  });
+  const golden = Math.PI * (3 - Math.sqrt(5));
+  const spread = (n, radius, add) => { // sunflower spiral, rotated and jittered by the seed: even coverage of the disc
+    const rot = g.rng.range(0, 2 * Math.PI);
+    for (let i = 0; i < n; i++) {
+      const r = Math.min(radius, radius * Math.sqrt((i + 0.5) / n) + g.rng.range(-0.4, 0.4)), a = rot + i * golden;
+      add([r3(Math.cos(a) * r), 0, r3(Math.sin(a) * r)]);
+    }
+  };
+  spread(100, 36, (p) => addMote(g, p, 'random', null, -1));
+  spread(200, 38, (p) => g.shades.push(makeShade(g, `S${++g.seq.S}`, p, 'wander', 0, 1)));
 }
 
 // ---------- entity helpers ----------
@@ -230,7 +253,7 @@ export function stepGame(g, input = {}) {
     }
   }
   for (const l of g.lanterns) { // lantern fuel: decay 1/s plus 5/s per draining shade; out at <= 0
-    if (!l.lit) continue;
+    if (!l.lit || g.bench) continue;
     const drainers = g.shades.filter((s) => s.state === 'drain' && s.target === l.id);
     l.fuel -= T.fuel_decay_per_s + drainers.length * T.drain_per_s;
     for (const s of drainers) if (++s.drainT % R.drain_event_every === 0) emit(g, 'fuel_drain', { lantern_id: l.id, shade_id: s.id, fuel: f1(Math.max(0, l.fuel)) });
@@ -319,7 +342,7 @@ export function stepGame(g, input = {}) {
   }
 
   // 4. pick up motes and charms
-  if (!away_) {
+  if (!away_ && !g.bench) {
     for (let i = 0; i < g.motes.length && p.carried < capacity(g);) {
       const m = g.motes[i];
       if (dxz(m.pos, p.pos) <= T.pickup_radius && Math.abs(p.pos[1] - m.pos[1]) <= R.pickup_dy) {
@@ -470,7 +493,7 @@ export function stepGame(g, input = {}) {
   }
 
   // 9. contact: drifters steal first, then shades hit (id ascending)
-  if (!away_) {
+  if (!away_ && !g.bench) {
     for (const d of [...g.drifters].sort(byId)) {
       if (d.state === 'chase' && !d.used && p.carried > 0 && dxz(d.pos, p.pos) <= R.drifter_touch_m) {
         const amount = Math.min(R.drifter_steal, p.carried);
@@ -517,7 +540,8 @@ export function stepGame(g, input = {}) {
     g.drifters.push(makeDrifter(`D${++g.seq.D}`, [q[0], 1.5, q[2]], 'idle', 0, 0));
   }
 
-  // 11. win / lose
+  // 11. win / lose (the benchmark scene never ends)
+  if (g.bench) return;
   if (p.flames <= 0) finish(g, 'lost', 'no_flames');
   else if (timeLeftTicks(g) <= 0) { // dawn: the island must still be lit enough. No early win any more.
     const need = Math.ceil(T.win_ratio * g.lanterns.length - 1e-9);

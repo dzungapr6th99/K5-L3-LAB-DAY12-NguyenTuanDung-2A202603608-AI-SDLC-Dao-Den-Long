@@ -23,7 +23,7 @@ function applyPalette() { // Ticket-03: warning colour #FF5A5F -> #FFFFFF with a
 applyPalette();
 
 // ---------- renderer ----------
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const renderer = new THREE.WebGLRenderer({ antialias: !params.has('noaa') });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
 document.body.prepend(renderer.domElement);
@@ -209,45 +209,52 @@ buildCells(T.carry_capacity);
 const arrow = $('arrow');
 const v3 = new THREE.Vector3();
 
+// DOM writes are cached: touching the DOM every frame made the page hitch (found with the benchmark).
+const hc = new Map();
+const setT = (el, v) => { if (hc.get(el) !== v) { hc.set(el, v); el.textContent = v; } };
+const setH = (el, v) => { if (hc.get(el) !== v) { hc.set(el, v); el.innerHTML = v; } };
+const setS = (el, prop, v) => { const k = `${el.id}|${prop}`; if (hc.get(k) !== v) { hc.set(k, v); el.style.setProperty(prop, v); } };
+const setC = (el, cls, on) => { const k = `${el.id}.${cls}`; if (hc.get(k) !== on) { hc.set(k, on); el.classList.toggle(cls, on); } };
+
 function updateHud() {
   const p = game.player, tl = Math.max(0, Math.ceil(timeLeft(game)));
-  flamesEl.innerHTML = Array.from({ length: T.flames }, (_, i) => `<span class="${i < p.flames ? '' : 'off'}">♨</span>`).join('');
+  setH(flamesEl, Array.from({ length: T.flames }, (_, i) => `<span class="${i < p.flames ? '' : 'off'}">♨</span>`).join(''));
   const clock = $('clock');
   const warnIcon = style.colorblind ? '⚠ ' : '';
-  clock.textContent = `${tl <= 30 ? warnIcon : ''}${Math.floor(tl / 60)}:${String(tl % 60).padStart(2, '0')}`;
-  clock.className = tl <= 30 ? 'low' : '';
+  setT(clock, `${tl <= 30 ? warnIcon : ''}${Math.floor(tl / 60)}:${String(tl % 60).padStart(2, '0')}`);
+  setC(clock, 'low', tl <= 30);
   const need = Math.ceil(T.win_ratio * game.lanterns.length - 1e-9);
-  $('lit').textContent = `${game.lanterns.filter((l) => l.lit).length}/${game.lanterns.length} (cần ${need})`;
-  $('score').textContent = game.state === 'won' ? camp.total : camp.total + game.score; // total already includes a won night
-  $('nightname').textContent = INTRO[game.night].title;
+  setT($('lit'), `${game.lanterns.filter((l) => l.lit).length}/${game.lanterns.length} (cần ${need})`);
+  setT($('score'), String(game.state === 'won' ? camp.total : camp.total + game.score)); // total already includes a won night
+  setT($('nightname'), INTRO[game.night].title);
   const cap = capacity(game);
-  if (cap !== cellCap) buildCells(cap); // capacity grows by 2 with every successful light (max 20)
-  cellEls.forEach((c, i) => c.classList.toggle('on', i < p.carried));
-  $('carry').textContent = `${p.carried}/${cap}`;
+  if (cap !== cellCap) { buildCells(cap); hc.delete('carried'); } // capacity grows by 2 with every successful light (max 20)
+  if (hc.get('carried') !== p.carried) { hc.set('carried', p.carried); cellEls.forEach((c, i) => c.classList.toggle('on', i < p.carried)); }
+  setT($('carry'), `${p.carried}/${cap}`);
   const dashFrac = p.charm > 0 ? 0 : p.dashCd / (T.dash_cooldown_s * TICK_RATE);
   const pulseFrac = p.pulseCd / (T.pulse_cooldown_s * TICK_RATE);
-  $('dash').style.setProperty('--cd', `${dashFrac * 360}deg`);
-  $('dash').classList.toggle('charm', p.charm > 0);
-  $('pulse').style.setProperty('--cd', `${pulseFrac * 360}deg`);
-  $('pulse').classList.toggle('dim', p.carried < T.pulse_cost);
-  $('charmt').textContent = p.charm > 0 ? `Bùa Gió ${(p.charm / TICK_RATE).toFixed(0)}s` : '';
-  $('windwarn').style.opacity = game.wind.enabled && (game.wind.warn || game.wind.active) ? 1 : 0;
-  $('windwarn').textContent = game.wind.active ? 'Gió mạnh!' : 'Gió sắp nổi…';
+  setS($('dash'), '--cd', `${Math.round(dashFrac * 360)}deg`);
+  setC($('dash'), 'charm', p.charm > 0);
+  setS($('pulse'), '--cd', `${Math.round(pulseFrac * 360)}deg`);
+  setC($('pulse'), 'dim', p.carried < T.pulse_cost);
+  setT($('charmt'), p.charm > 0 ? `Bùa Gió ${(p.charm / TICK_RATE).toFixed(0)}s` : '');
+  setS($('windwarn'), 'opacity', game.wind.enabled && (game.wind.warn || game.wind.active) ? '1' : '0');
+  setT($('windwarn'), game.wind.active ? 'Gió mạnh!' : 'Gió sắp nổi…');
 
-  // prompt near an unlit lantern; arrow to the nearest unlit lantern
+  // prompt near a lantern that can take motes; arrow to the nearest dark or nearly-out lantern
   let near = null, nd = Infinity, target = null, td = Infinity;
   for (const l of game.lanterns) {
     const d = Math.hypot(l.pos[0] - p.pos[0], l.pos[2] - p.pos[2]);
-    if ((!l.lit || l.fuel < T.fuel_max * TICK_RATE) && d < nd) { nd = d; near = l; } // can take motes
-    if ((!l.lit || l.fuel < T.low_fuel_threshold * TICK_RATE) && d < td) { td = d; target = l; } // dark or nearly out: needs help
+    if ((!l.lit || l.fuel < T.fuel_max * TICK_RATE) && d < nd) { nd = d; near = l; }
+    if ((!l.lit || l.fuel < T.low_fuel_threshold * TICK_RATE) && d < td) { td = d; target = l; }
   }
   const pr = $('prompt');
   if (near && nd <= T.interact_radius) {
-    pr.textContent = near.lit ? `E — Châm dầu (${(near.fuel / TICK_RATE).toFixed(0)}/${T.fuel_max})` : `E — Nạp ánh sáng (${near.deposited}/${near.everLit ? T.relight_cost : T.lantern_cost})`;
-    pr.style.opacity = 1;
-  } else pr.style.opacity = 0;
+    setT(pr, near.lit ? `E — Châm dầu (${(near.fuel / TICK_RATE).toFixed(0)}/${T.fuel_max})` : `E — Nạp ánh sáng (${near.deposited}/${near.everLit ? T.relight_cost : T.lantern_cost})`);
+    setS(pr, 'opacity', '1');
+  } else setS(pr, 'opacity', '0');
 
-  arrow.style.opacity = 0;
+  let arrowOp = '0', arrowTf = hc.get('arrowTf') ?? '';
   if (target) {
     v3.set(target.pos[0], target.pos[1] + 3.4, target.pos[2]).project(camera);
     const behind = v3.z > 1, off = behind || Math.abs(v3.x) > 0.92 || Math.abs(v3.y) > 0.88;
@@ -255,17 +262,62 @@ function updateHud() {
       let x = behind ? -v3.x : v3.x, y = behind ? -v3.y : v3.y;
       const m = Math.max(Math.abs(x), Math.abs(y)) || 1;
       x /= m; y /= m;
-      const sx = (x * 0.9 * 0.5 + 0.5) * innerWidth, sy = (-y * 0.66 * 0.5 + 0.5) * innerHeight; // stays clear of the HUD panels
-      arrow.style.opacity = 1;
-      arrow.style.transform = `translate(${sx}px, ${sy}px) rotate(${Math.atan2(-y, x) + Math.PI / 2}rad)`;
+      const sx = Math.round((x * 0.9 * 0.5 + 0.5) * innerWidth), sy = Math.round((-y * 0.66 * 0.5 + 0.5) * innerHeight); // clear of the HUD panels
+      arrowOp = '1'; arrowTf = `translate(${sx}px, ${sy}px) rotate(${(Math.atan2(-y, x) + Math.PI / 2).toFixed(2)}rad)`;
     }
   }
+  setS(arrow, 'opacity', arrowOp);
+  if (arrowOp === '1') { setS(arrow, 'transform', arrowTf); hc.set('arrowTf', arrowTf); }
   if (tl <= 10 && tl > 0 && tl !== lastSecond && screen === 'play' && !game.paused) { sfx.tick(); lastSecond = tl; }
+}
+
+// ---------- benchmark mode (?bench=1&seed=42&duration=30), driven by scripts/bench.mjs ----------
+const B = { on: params.has('bench'), t0: null, prev: null, dts: [], done: false, acc: 0, last: 0 };
+function startBench() {
+  const seed = Number(params.get('seed')) || 42;
+  world?.dispose();
+  game = createGame({ seed, night: 1, bench: true });
+  game.cameraYaw = 0;
+  world = buildWorld(scene, game);
+  renderer.setPixelRatio(1); // the benchmark is defined at 1280x720
+  if (params.has('nohud')) $('hud').style.display = 'none'; // diagnostic only
+  hide();
+  screen = 'bench';
+  window.__ddl = { game, camp, getScreen: () => screen };
+}
+function benchFrame(now) {
+  const duration = Number(params.get('duration')) || 30;
+  if (B.t0 === null) {
+    B.t0 = now; B.prev = now; B.last = now;
+    window.__benchFirstFrameEpochMs = performance.timeOrigin + now;
+  }
+  const t = (now - B.t0) / 1000;
+  B.acc += Math.min(0.1, (now - B.last) / 1000); B.last = now;
+  for (let guard = 0; B.acc >= 1 / TICK_RATE && guard < 10; guard++) { stepGame(game, {}); B.acc -= 1 / TICK_RATE; game.events.length = 0; }
+  // camera circles (0,0,0): radius 30, height 15, 15 s per revolution, counter-clockwise from above, starting at (30,15,0)
+  const a = (2 * Math.PI * t) / 15;
+  camera.position.set(30 * Math.cos(a), 15, 30 * Math.sin(a));
+  camera.lookAt(0, 0, 0);
+  updateHud();
+  world.update(game, now / 1000);
+  renderer.render(scene, camera);
+  if (t >= 3 && t < 3 + duration) B.dts.push(now - B.prev); // the first 3 s are warm-up
+  B.prev = now;
+  if (t >= 3 + duration && !B.done) {
+    B.done = true;
+    const gl = renderer.getContext(), ext = gl.getExtension('WEBGL_debug_renderer_info');
+    window.__bench = {
+      dts: B.dts, firstFrameEpochMs: window.__benchFirstFrameEpochMs,
+      renderer: `three.js r${THREE.REVISION} / WebGL: ${ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER)}`,
+      shades: game.shades.length, motes: game.motes.length,
+    };
+  }
 }
 
 // ---------- main loop: fixed 60 Hz sim, render every frame ----------
 let last = performance.now(), acc = 0, fpsFrames = 0, fpsT = last;
 function frame(now) {
+  if (screen === 'bench') { benchFrame(now); requestAnimationFrame(frame); return; }
   const dt = Math.min(0.1, (now - last) / 1000);
   last = now;
   if (game) {
@@ -293,7 +345,7 @@ function frame(now) {
 
 // ---------- boot ----------
 loadNight(1);
-menuCard();
+if (B.on) startBench(); else menuCard();
 const startNightParam = Number(params.get('night'));
-if (params.has('autostart') || startNightParam) { camp.night = startNightParam || 1; loadNight(camp.night); beginNight(); }
+if (!B.on && (params.has('autostart') || startNightParam)) { camp.night = startNightParam || 1; loadNight(camp.night); beginNight(); }
 requestAnimationFrame(frame);

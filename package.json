@@ -1,14 +1,18 @@
 {
   "name": "dao-den-long",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Đảo Đèn Lồng - game 3D web (Phase 1)",
+  "description": "Đảo Đèn Lồng - game 3D web (v1.0.0)",
   "scripts": {
     "start": "node server.js",
     "test": "node --test \"test/**/*.test.js\"",
     "headless": "node src/headless.js",
-    "evidence": "node scripts/evidence.js"
+    "evidence": "node scripts/evidence.js",
+    "bench": "node scripts/bench.mjs --seed 42 --duration 30 --out bench.json",
+    "soak": "node --expose-gc scripts/soak.js --seed 7 --nights 10 --out soak.json",
+    "contract": "node scripts/make-contract.mjs",
+    "leaderboard": "node server.js --export-leaderboard leaderboard.json"
   },
   "dependencies": {
     "three": "0.170.0"

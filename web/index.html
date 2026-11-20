@@ -9,7 +9,7 @@
   html, body { margin:0; height:100%; background:var(--sky); overflow:hidden; font-family:"Segoe UI", system-ui, sans-serif; color:var(--text); }
   canvas { display:block; }
   #hud { position:fixed; inset:0; pointer-events:none; user-select:none; }
-  .panel { position:absolute; background:rgba(14,20,48,.62); border:1px solid rgba(242,193,78,.4); border-radius:12px; padding:8px 14px; backdrop-filter:blur(4px); }
+  .panel { position:absolute; background:rgba(14,20,48,.82); border:1px solid rgba(242,193,78,.4); border-radius:12px; padding:8px 14px; } /* no backdrop-filter: it made every frame expensive */
   #tl { top:12px; left:12px; } #tr { top:12px; right:12px; text-align:right; }
   #tc { top:12px; left:50%; transform:translateX(-50%); text-align:center; min-width:120px; }
   #clock { font-size:28px; font-weight:700; font-variant-numeric:tabular-nums; }

@@ -210,10 +210,11 @@ test('night_start event: once, on the first tick, carries the night', () => {
   }
 });
 
-test('Contract v1.2: version, standard numbers, new keys, top-level score', () => {
+test('Contract v1.3: version, commands (incl. bench_cmd, soak_cmd), standard numbers of v1.0-v1.2, top-level score', () => {
   const c = JSON.parse(readFileSync('game.contract.json', 'utf8'));
-  assert.equal(c.contract_version, '1.2');
-  for (const k of ['team', 'build_cmd', 'run_cmd', 'headless_cmd']) assert.equal(typeof c[k], 'string');
+  assert.equal(c.contract_version, '1.3');
+  for (const k of ['team', 'build_cmd', 'run_cmd', 'headless_cmd', 'bench_cmd', 'soak_cmd']) assert.equal(typeof c[k], 'string');
+  assert.match(c.bench_cmd, /bench/); assert.match(c.soak_cmd, /soak/);
   assert.deepEqual(c.tuning, T);
   const standard = {
     player_speed: 6, carry_capacity: 10, lantern_cost: 10, lantern_count_night1: 5, pickup_radius: 1, interact_radius: 2,
